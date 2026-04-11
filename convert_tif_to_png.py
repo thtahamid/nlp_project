@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Convert all TIF/TIFF files in data/raw to PNG and save them in data/raw_png."""
 
+import time
 from pathlib import Path
 from PIL import Image
 
@@ -20,13 +21,17 @@ def convert_tif_to_png() -> None:
         return
 
     print(f"Found {len(tif_files)} file(s). Converting...")
+    start = time.perf_counter()
     for tif_file in tif_files:
         out_file = OUTPUT_DIR / (tif_file.stem + ".png")
+        t0 = time.perf_counter()
         with Image.open(tif_file) as img:
             img.save(out_file, format="PNG")
-        print(f"  {tif_file.name} -> {out_file.name}")
+        elapsed = time.perf_counter() - t0
+        print(f"  {tif_file.name} -> {out_file.name} ({elapsed:.2f}s)")
 
-    print("Done.")
+    total = time.perf_counter() - start
+    print(f"Done. Total time: {total:.2f}s")
 
 
 if __name__ == "__main__":
