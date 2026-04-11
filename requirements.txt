@@ -1,0 +1,26 @@
+# PyTorch (CUDA 12.1) — install with the extra index URL below
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch
+torchvision
+
+# Core training stack
+transformers>=4.40
+peft>=0.10
+bitsandbytes>=0.43
+accelerate>=0.30
+trl
+datasets
+
+# Vision / image utilities
+Pillow
+PyMuPDF
+
+# External APIs
+openai
+python-dotenv
+
+# Experiment tracking
+wandb
+
+# Inference server (optional — needed for Stage 5 only)
+vllm>=0.4

@@ -230,12 +230,14 @@ deactivate
 ### 3.2 Install Dependencies
 
 ```bash
-pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-pip3 install transformers>=4.40 peft>=0.10 bitsandbytes>=0.43 accelerate>=0.30 datasets Pillow PyMuPDF openai trl wandb
-
-# For inference server (install later, or now)
-pip3 install vllm>=0.4
+pip install -r requirements.txt
 ```
+
+> **NOTE**
+> `requirements.txt` in the project root installs all dependencies in one step,
+> including PyTorch (CUDA 12.1), the training stack, vision utilities, OpenAI client,
+> python-dotenv, wandb, and the optional vllm inference server.
+> Remove or comment out the `vllm` line if you do not need Stage 5.
 
 ### 3.3 Set Up Your Project
 
@@ -321,10 +323,10 @@ Never commit your API key to git. This step is mandatory.
 
 **Step 3 — Load the key at runtime**
 
-Install `python-dotenv`:
+Install `python-dotenv` (already included in `requirements.txt`; run this only if you skipped the full install):
 
 ```bash
-pip3 install python-dotenv
+pip install python-dotenv
 ```
 
 Then add these two lines to the top of any script that needs the key:
