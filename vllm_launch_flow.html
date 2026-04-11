@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8.1 Launch vLLM Server</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0c10;font-family:'Fira Code','Cascadia Code',monospace;color:#c9d1d9;overflow-x:auto;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(48,54,61,0.4) 1px,transparent 1px),linear-gradient(90deg,rgba(48,54,61,0.4) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+header{text-align:center;padding:1.5rem 1rem 0.4rem;position:relative;z-index:10;}
+header h1{font-size:1rem;letter-spacing:.2em;text-transform:uppercase;color:#58a6ff;}
+header h1 span{color:#3fb950;}
+header p{font-size:.68rem;color:#484f58;letter-spacing:.12em;margin-top:.2rem;}
+#cv{position:absolute;top:0;left:0;pointer-events:none;z-index:2;}
+#stage{position:relative;width:1200px;height:1320px;margin:0 auto;z-index:5;}
+.node{position:absolute;width:220px;border:1px solid;border-radius:4px;padding:.8rem 1rem;backdrop-filter:blur(6px);transition:transform .2s,box-shadow .2s;cursor:default;z-index:6;}
+.node:hover{transform:translateY(-2px);box-shadow:0 0 24px var(--glow);}
+.node.env   {--glow:rgba(88,166,255,.55);background:rgba(22,44,78,.4);border-color:rgba(88,166,255,.5);}
+.node.config{--glow:rgba(63,185,80,.5);background:rgba(16,46,22,.4);border-color:rgba(63,185,80,.5);}
+.node.func  {--glow:rgba(210,153,34,.55);background:rgba(48,36,8,.45);border-color:rgba(210,153,34,.5);}
+.node.io    {--glow:rgba(188,140,255,.5);background:rgba(40,22,68,.4);border-color:rgba(188,140,255,.5);}
+.node.api   {--glow:rgba(255,123,114,.5);background:rgba(68,16,16,.4);border-color:rgba(255,123,114,.5);}
+.node.out   {--glow:rgba(63,185,80,.55);background:rgba(10,40,16,.45);border-color:rgba(63,185,80,.5);}
+.node.warn  {--glow:rgba(227,179,65,.55);background:rgba(52,38,4,.45);border-color:rgba(227,179,65,.5);}
+.node-title{font-size:.72rem;font-weight:700;letter-spacing:.06em;margin-bottom:.42rem;display:flex;align-items:center;gap:.38rem;}
+.node.env    .node-title{color:#58a6ff;}
+.node.config .node-title{color:#3fb950;}
+.node.func   .node-title{color:#d29922;}
+.node.io     .node-title{color:#bc8cff;}
+.node.api    .node-title{color:#ff7b72;}
+.node.out    .node-title{color:#3fb950;}
+.node.warn   .node-title{color:#e3b341;}
+.node-body{font-size:.63rem;color:#8b949e;line-height:1.58;}
+.node-body code{color:#e3b341;background:rgba(255,255,255,.05);padding:.02rem .2rem;border-radius:2px;font-size:.61rem;}
+.node-body .warn-text{color:#e3b341;font-weight:600;}
+.badge{font-size:.54rem;padding:.07rem .32rem;border-radius:2px;letter-spacing:.05em;font-weight:700;}
+.bb{background:rgba(88,166,255,.16);color:#58a6ff;border:1px solid rgba(88,166,255,.35);}
+.bg{background:rgba(63,185,80,.16);color:#3fb950;border:1px solid rgba(63,185,80,.35);}
+.by{background:rgba(210,153,34,.16);color:#d29922;border:1px solid rgba(210,153,34,.35);}
+.bp{background:rgba(188,140,255,.16);color:#bc8cff;border:1px solid rgba(188,140,255,.35);}
+.br{background:rgba(255,123,114,.16);color:#ff7b72;border:1px solid rgba(255,123,114,.35);}
+.bw{background:rgba(227,179,65,.16);color:#e3b341;border:1px solid rgba(227,179,65,.35);}
+.sn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);font-size:.58rem;font-weight:700;color:#5a6370;flex-shrink:0;}
+/* command block */
+.cmd-block{position:absolute;border:1px solid rgba(88,166,255,.3);border-radius:4px;background:rgba(10,15,25,.7);backdrop-filter:blur(6px);padding:1rem 1.2rem;z-index:6;font-size:.63rem;line-height:1.7;color:#8b949e;}
+.cmd-block .cmd-title{font-size:.68rem;font-weight:700;color:#58a6ff;letter-spacing:.1em;margin-bottom:.6rem;}
+.cmd-block code{color:#e3b341;font-size:.62rem;}
+.cmd-block .flag{color:#3fb950;}
+.cmd-block .val {color:#bc8cff;}
+.cmd-block .warn-flag{color:#ff7b72;}
+/* legend */
+.legend{position:fixed;bottom:1.2rem;right:1.4rem;background:rgba(13,17,23,.9);border:1px solid #30363d;border-radius:4px;padding:.6rem .9rem;font-size:.6rem;color:#484f58;z-index:20;backdrop-filter:blur(8px);}
+.legend-title{color:#6e7681;font-weight:700;margin-bottom:.3rem;letter-spacing:.1em;}
+.lrow{display:flex;align-items:center;gap:.4rem;margin-bottom:.18rem;}
+.dot{width:7px;height:7px;border-radius:50%;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<header>
+  <h1>8.1 — Launch <span>vLLM</span> Server</h1>
+  <p>Inference Server · OpenAI-Compatible API · LoRA Hot-Loading</p>
+</header>
+
+<div id="stage">
+
+  <!-- STEP 1: Command entry -->
+  <div class="node env" id="n-cmd" style="left:490px;top:40px">
+    <div class="node-title"><span class="sn">1</span><span class="badge bb">CMD</span> vLLM Entry Point</div>
+    <div class="node-body">
+      <code>python3 -m vllm.entrypoints.openai.api_server</code><br>
+      OpenAI-compatible HTTP server<br>
+      Runs on GPU instance (A10G 24 GB)
+    </div>
+  </div>
+
+  <!-- STEP 2a: Model args -->
+  <div class="node func" id="n-margs" style="left:80px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge by">ARG</span> Model Arguments</div>
+    <div class="node-body">
+      <code>--model</code> Qwen/Qwen2.5-VL-7B-Instruct<br>
+      <code>--trust-remote-code</code><br>
+      <code>--dtype auto</code> (bfloat16 on A10G)<br>
+      <code>--max-model-len 8192</code>
+    </div>
+  </div>
+
+  <!-- STEP 2b: LoRA args -->
+  <div class="node io" id="n-largs" style="left:490px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge bp">ARG</span> LoRA Arguments</div>
+    <div class="node-body">
+      <code>--enable-lora</code><br>
+      <code>--max-lora-rank 32</code> <span class="warn-text">⚠ must match adapter!</span><br>
+      <code>--lora-modules</code> arabic-ocr=models/lora_adapter<br>
+      <code>--served-model-name</code> arabic-ocr-v1
+    </div>
+  </div>
+
+  <!-- STEP 2c: Server args -->
+  <div class="node api" id="n-sargs" style="left:840px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge br">ARG</span> Server Arguments</div>
+    <div class="node-body">
+      <code>--host 0.0.0.0</code> (all interfaces)<br>
+      <code>--port 8000</code><br>
+      <code>--gpu-memory-utilization 0.90</code><br>
+      90% of 24 GB VRAM = 21.6 GB
+    </div>
+  </div>
+
+  <!-- STEP 3a: GPU Memory Manager -->
+  <div class="node api" id="n-gpu" style="left:80px;top:480px">
+    <div class="node-title"><span class="sn">3</span><span class="badge br">GPU</span> Memory Manager</div>
+    <div class="node-body">
+      Allocates KV-cache blocks on A10G<br>
+      90% utilization → ~21.6 GB reserved<br>
+      PagedAttention for efficient batching<br>
+      Continuous batching enabled
+    </div>
+  </div>
+
+  <!-- STEP 3b: LoRA Registry -->
+  <div class="node io" id="n-lora" style="left=490px;top:480px;left:490px">
+    <div class="node-title"><span class="sn">3</span><span class="badge bp">LORA</span> LoRA Registry</div>
+    <div class="node-body">
+      Loads adapter from <code>models/lora_adapter/</code><br>
+      Registers as alias <code>arabic-ocr-v1</code><br>
+      Hot-swappable per request<br>
+      rank=32 verified against <code>--max-lora-rank</code>
+    </div>
+  </div>
+
+  <!-- STEP 3c: Model Loader -->
+  <div class="node func" id="n-loader" style="left:840px;top:480px">
+    <div class="node-title"><span class="sn">3</span><span class="badge by">LOAD</span> Base Model Loader</div>
+    <div class="node-body">
+      Downloads / loads from HuggingFace cache<br>
+      Quantization: auto (bfloat16)<br>
+      Applies tensor parallelism if multi-GPU<br>
+      Vision encoder + LM head initialized
+    </div>
+  </div>
+
+  <!-- WARNING node -->
+  <div class="node warn" id="n-warn" style="left:840px;top:720px">
+    <div class="node-title"><span class="sn">!</span><span class="badge bw">WARN</span> Critical Mismatch</div>
+    <div class="node-body">
+      Default <code>--max-lora-rank</code> = <strong>16</strong><br>
+      Adapter trained with rank = <strong>32</strong><br>
+      <span class="warn-text">→ ValueError: rank 32 &gt; max_lora_rank 16</span><br>
+      Fix: always pass <code>--max-lora-rank 32</code>
+    </div>
+  </div>
+
+  <!-- STEP 4: OpenAI API -->
+  <div class="node config" id="n-api" style="left:490px;top:720px">
+    <div class="node-title"><span class="sn">4</span><span class="badge bg">API</span> OpenAI-Compatible API</div>
+    <div class="node-body">
+      Routes: <code>/health</code> · <code>/v1/models</code><br>
+      Route: <code>/v1/chat/completions</code><br>
+      Vision input supported (image_url)<br>
+      LoRA selected via <code>"model"</code> field
+    </div>
+  </div>
+
+  <!-- STEP 4b: Security Group -->
+  <div class="node io" id="n-sg" style="left:80px;top:720px">
+    <div class="node-title"><span class="sn">4</span><span class="badge bp">NET</span> Network / Security</div>
+    <div class="node-body">
+      AWS Security Group: port 8000 open<br>
+      Inbound: your IP only (TCP 8000)<br>
+      <code>0.0.0.0</code> binds all interfaces<br>
+      Access via <code>http://&lt;PUBLIC_IP&gt;:8000</code>
+    </div>
+  </div>
+
+  <!-- STEP 5: Ready -->
+  <div class="node out" id="n-ready" style="left:490px;top:960px">
+    <div class="node-title"><span class="sn">5</span><span class="badge bg">LIVE</span> Server Ready</div>
+    <div class="node-body">
+      Startup log: <code>Uvicorn running on 0.0.0.0:8000</code><br>
+      Model: <code>arabic-ocr-v1</code> registered<br>
+      GPU utilization visible via <code>nvidia-smi</code><br>
+      Ready to serve inference requests
+    </div>
+  </div>
+
+  <!-- Command block -->
+  <div class="cmd-block" style="left:80px;top:1080px;width:1040px">
+    <div class="cmd-title">FULL LAUNCH COMMAND</div>
+    <code>python3 -m vllm.entrypoints.openai.api_server</code> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--model</span> <span class="val">"Qwen/Qwen2.5-VL-7B-Instruct"</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--enable-lora</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="warn-flag">--max-lora-rank 32</span> &nbsp;<span style="color:#484f58"># ⚠ MUST match adapter rank</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--lora-modules</span> <span class="val">"arabic-ocr=models/lora_adapter"</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--served-model-name</span> <span class="val">"arabic-ocr-v1"</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--max-model-len</span> <span class="val">8192</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--gpu-memory-utilization</span> <span class="val">0.90</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--trust-remote-code</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--host</span> <span class="val">0.0.0.0</span> <span class="flag">--port</span> <span class="val">8000</span> <span class="flag">--dtype</span> <span class="val">auto</span>
+  </div>
+
+</div>
+
+<div class="legend">
+  <div class="legend-title">NODE TYPES</div>
+  <div class="lrow"><div class="dot" style="background:#58a6ff"></div> Entry / Command</div>
+  <div class="lrow"><div class="dot" style="background:#d29922"></div> CLI Arguments</div>
+  <div class="lrow"><div class="dot" style="background:#bc8cff"></div> LoRA / Network</div>
+  <div class="lrow"><div class="dot" style="background:#ff7b72"></div> GPU / Warning</div>
+  <div class="lrow"><div class="dot" style="background:#3fb950"></div> API / Ready</div>
+</div>
+
+<script>
+const GRID=40,RADIUS=14;
+const canvas=document.getElementById('cv'),ctx=canvas.getContext('2d');
+let tick=0,ROUTES=[];
+
+function snap(v){return Math.round(v/GRID)*GRID;}
+function getEl(id){const el=document.getElementById(id),r=el.getBoundingClientRect(),sx=window.scrollX,sy=window.scrollY;return{left:r.left+sx,top:r.top+sy,right:r.right+sx,bottom:r.bottom+sy,cx:r.left+r.width/2+sx,cy:r.top+r.height/2+sy};}
+function polyLen(pts){let l=0;for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y;l+=Math.sqrt(dx*dx+dy*dy);}return l;}
+function polyAt(pts,t){const tot=polyLen(pts);let rem=tot*Math.max(0,Math.min(1,t));for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y,seg=Math.sqrt(dx*dx+dy*dy);if(rem<=seg||i===pts.length-1){const f=seg>0?rem/seg:0;return{x:pts[i-1].x+dx*f,y:pts[i-1].y+dy*f};}rem-=seg;}return pts[pts.length-1];}
+function buildPath(pts,r){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length-1;i++){const p=pts[i-1],c=pts[i],n=pts[i+1],dx1=c.x-p.x,dy1=c.y-p.y,l1=Math.sqrt(dx1*dx1+dy1*dy1)||1,dx2=n.x-c.x,dy2=n.y-c.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1,rr=Math.min(r,l1/2,l2/2),bx=c.x-(dx1/l1)*rr,by=c.y-(dy1/l1)*rr,ax=c.x+(dx2/l2)*rr,ay=c.y+(dy2/l2)*rr;ctx.lineTo(bx,by);ctx.quadraticCurveTo(c.x,c.y,ax,ay);}ctx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y);}
+function arrowHead(pts,color){const n=pts.length,dx=pts[n-1].x-pts[n-2].x,dy=pts[n-1].y-pts[n-2].y,a=Math.atan2(dy,dx),sz=9,px=pts[n-1].x,py=pts[n-1].y;ctx.save();ctx.fillStyle=color+'ee';ctx.shadowColor=color;ctx.shadowBlur=10;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-sz*Math.cos(a-0.38),py-sz*Math.sin(a-0.38));ctx.lineTo(px-sz*Math.cos(a+0.38),py-sz*Math.sin(a+0.38));ctx.closePath();ctx.fill();ctx.restore();}
+function drawRoute(route,dashOff){const{pts,color,label}=route;ctx.save();ctx.strokeStyle=color+'2a';ctx.lineWidth=5;ctx.lineJoin='round';ctx.lineCap='round';ctx.shadowColor=color;ctx.shadowBlur=12;buildPath(pts,RADIUS);ctx.stroke();ctx.restore();ctx.save();ctx.strokeStyle=color+'c0';ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.setLineDash([7,6]);ctx.lineDashOffset=-dashOff;buildPath(pts,RADIUS);ctx.stroke();ctx.restore();const tDot=((dashOff%26)/26),dot=polyAt(pts,tDot);ctx.save();ctx.fillStyle='#fff';ctx.shadowColor=color;ctx.shadowBlur=16;ctx.beginPath();ctx.arc(dot.x,dot.y,2.8,0,Math.PI*2);ctx.fill();ctx.restore();arrowHead(pts,color);if(label){const mid=polyAt(pts,0.5);ctx.save();ctx.font='600 9.5px Fira Code,monospace';ctx.fillStyle=color;ctx.globalAlpha=0.9;ctx.textAlign='center';ctx.shadowColor='#0a0c10';ctx.shadowBlur=4;ctx.fillText(label,mid.x,mid.y-8);ctx.restore();}}
+
+function buildRoutes(){
+  const cmd=getEl('n-cmd'),margs=getEl('n-margs'),largs=getEl('n-largs'),
+        sargs=getEl('n-sargs'),gpu=getEl('n-gpu'),lora=getEl('n-lora'),
+        loader=getEl('n-loader'),warn=getEl('n-warn'),api=getEl('n-api'),
+        sg=getEl('n-sg'),ready=getEl('n-ready');
+
+  const Y01=snap((cmd.bottom+margs.top)/2);
+  const Y12=snap((margs.bottom+gpu.top)/2);
+  const Y23=snap((gpu.bottom+api.top)/2);
+  const Y34=snap((api.bottom+ready.top)/2);
+
+  ROUTES=[
+    // cmd fans to 3 arg nodes
+    {pts:[{x:cmd.cx,y:cmd.bottom},{x:cmd.cx,y:Y01},{x:margs.cx,y:Y01},{x:margs.cx,y:margs.top}],color:'#58a6ff',label:'model flags',speed:0.9},
+    {pts:[{x:cmd.cx,y:cmd.bottom},{x:cmd.cx,y:Y01},{x:largs.cx,y:Y01},{x:largs.cx,y:largs.top}],color:'#58a6ff',label:'lora flags',speed:0.9},
+    {pts:[{x:cmd.cx,y:cmd.bottom},{x:cmd.cx,y:Y01},{x:sargs.cx,y:Y01},{x:sargs.cx,y:sargs.top}],color:'#58a6ff',label:'server flags',speed:0.9},
+
+    // margs → gpu (model flags drive GPU memory setup)
+    {pts:[{x:margs.cx,y:margs.bottom},{x:margs.cx,y:Y12},{x:gpu.cx,y:Y12},{x:gpu.cx,y:gpu.top}],color:'#ff7b72',label:'max-model-len',speed:0.85},
+
+    // largs → lora registry
+    {pts:[{x:largs.cx,y:largs.bottom},{x:largs.cx,y:Y12},{x:lora.cx,y:Y12},{x:lora.cx,y:lora.top}],color:'#bc8cff',label:'adapter path',speed:0.85},
+
+    // sargs → loader
+    {pts:[{x:sargs.cx,y:sargs.bottom},{x:sargs.cx,y:Y12},{x:loader.cx,y:Y12},{x:loader.cx,y:loader.top}],color:'#d29922',label:'dtype/trust',speed:0.85},
+
+    // sargs → sg (server binding → network)
+    {pts:[{x:sargs.left,y:sargs.cy},{x:sg.right,y:sargs.cy}],color:'#bc8cff',label:'host:port',speed:0.8},
+
+    // lora → warn (rank mismatch warning path)
+    {pts:[{x:lora.right,y:lora.cy},{x:warn.left,y:lora.cy}],color:'#e3b341',label:'rank check',speed:0.7},
+
+    // loader → api (model loaded → API ready)
+    {pts:[{x:loader.cx,y:loader.bottom},{x:loader.cx,y:Y23},{x:api.cx+28,y:Y23},{x:api.cx+28,y:api.top}],color:'#d29922',label:'model ready',speed:0.85},
+
+    // lora → api (adapter registered → API)
+    {pts:[{x:lora.cx,y:lora.bottom},{x:lora.cx,y:Y23},{x:api.cx-28,y:Y23},{x:api.cx-28,y:api.top}],color:'#bc8cff',label:'adapter reg.',speed:0.85},
+
+    // gpu → api (memory allocated → serving)
+    {pts:[{x:gpu.right,y:gpu.cy},{x:api.left,y:gpu.cy}],color:'#ff7b72',label:'kv-cache ready',speed:0.8},
+
+    // sg → ready (network open → serving)
+    {pts:[{x:sg.cx,y:sg.bottom},{x:sg.cx,y:Y34},{x:ready.cx-40,y:Y34},{x:ready.cx-40,y:ready.top}],color:'#bc8cff',label:'port open',speed:0.8},
+
+    // api → ready
+    {pts:[{x:api.cx,y:api.bottom},{x:api.cx,y:Y34},{x:ready.cx,y:Y34},{x:ready.cx,y:ready.top}],color:'#3fb950',label:'endpoints up',speed:0.95},
+  ];
+}
+
+function render(){
+  canvas.width=Math.max(document.documentElement.scrollWidth,1200);
+  canvas.height=Math.max(document.documentElement.scrollHeight,600);
+  tick+=0.08;
+  ROUTES.forEach((route,i)=>{const speed=route.speed??1,dashOff=(tick*speed+i*18)%600;drawRoute(route,dashOff);});
+  requestAnimationFrame(render);
+}
+window.addEventListener('load',()=>{buildRoutes();render();});
+window.addEventListener('resize',buildRoutes);
+</script>
+</body>
+</html>
