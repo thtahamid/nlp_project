@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>collect_data.py — Dataflow</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0a0c10;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  color: #c9d1d9;
+  overflow-x: auto;
+}
+
+/* squared grid background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(48,54,61,0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(48,54,61,0.4) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  text-align: center;
+  padding: 1.6rem 1rem 0.5rem;
+  position: relative;
+  z-index: 10;
+}
+header h1 {
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #58a6ff;
+}
+header h1 span { color: #3fb950; }
+header p {
+  font-size: 0.68rem;
+  color: #484f58;
+  letter-spacing: 0.12em;
+  margin-top: 0.2rem;
+}
+
+/* canvas drawn over everything */
+#cv {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* stage: fixed 1200px wide, nodes absolutely positioned inside */
+#stage {
+  position: relative;
+  width: 1200px;
+  height: 1420px;
+  margin: 0 auto;
+  z-index: 5;
+}
+
+/* ── nodes ── */
+.node {
+  position: absolute;
+  width: 220px;
+  border: 1px solid;
+  border-radius: 4px;
+  padding: 0.8rem 1rem;
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+  z-index: 6;
+}
+.node:hover { transform: translateY(-2px); box-shadow: 0 0 24px var(--glow); }
+
+.node.env    { --glow:rgba(88,166,255,.55); background:rgba(22,44,78,.4);   border-color:rgba(88,166,255,.5);  }
+.node.config { --glow:rgba(63,185,80,.5);   background:rgba(16,46,22,.4);   border-color:rgba(63,185,80,.5);   }
+.node.func   { --glow:rgba(210,153,34,.55); background:rgba(48,36,8,.45);   border-color:rgba(210,153,34,.5);  }
+.node.io     { --glow:rgba(188,140,255,.5); background:rgba(40,22,68,.4);   border-color:rgba(188,140,255,.5); }
+.node.api    { --glow:rgba(255,123,114,.5); background:rgba(68,16,16,.4);   border-color:rgba(255,123,114,.5); }
+.node.out    { --glow:rgba(63,185,80,.55);  background:rgba(10,40,16,.45);  border-color:rgba(63,185,80,.5);   }
+
+.node-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.42rem;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+.node.env    .node-title { color:#58a6ff; }
+.node.config .node-title { color:#3fb950; }
+.node.func   .node-title { color:#d29922; }
+.node.io     .node-title { color:#bc8cff; }
+.node.api    .node-title { color:#ff7b72; }
+.node.out    .node-title { color:#3fb950; }
+
+.node-body {
+  font-size: 0.63rem;
+  color: #8b949e;
+  line-height: 1.58;
+}
+.node-body code {
+  color: #e3b341;
+  background: rgba(255,255,255,.05);
+  padding: 0.02rem 0.2rem;
+  border-radius: 2px;
+  font-size: 0.61rem;
+}
+
+.badge {
+  font-size: 0.54rem;
+  padding: 0.07rem 0.32rem;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+.bb { background:rgba(88,166,255,.16);  color:#58a6ff; border:1px solid rgba(88,166,255,.35); }
+.bg { background:rgba(63,185,80,.16);   color:#3fb950; border:1px solid rgba(63,185,80,.35);  }
+.by { background:rgba(210,153,34,.16);  color:#d29922; border:1px solid rgba(210,153,34,.35); }
+.bp { background:rgba(188,140,255,.16); color:#bc8cff; border:1px solid rgba(188,140,255,.35);}
+.br { background:rgba(255,123,114,.16); color:#ff7b72; border:1px solid rgba(255,123,114,.35);}
+
+.sn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:17px; height:17px; border-radius:50%;
+  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14);
+  font-size:0.58rem; font-weight:700; color:#5a6370; flex-shrink:0;
+}
+
+/* loop label badge on far right */
+#loop-label {
+  position: absolute;
+  right: -10px;
+  font-size: 0.6rem;
+  color: #e3b341;
+  background: rgba(13,17,23,.88);
+  border: 1px solid rgba(227,179,65,.3);
+  border-radius: 3px;
+  padding: 0.15rem 0.4rem;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  z-index: 10;
+}
+
+/* legend */
+.legend {
+  position: fixed;
+  bottom: 1.2rem; right: 1.4rem;
+  background: rgba(13,17,23,.9);
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.6rem;
+  color: #484f58;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+.legend-title { color:#6e7681; font-weight:700; margin-bottom:0.3rem; letter-spacing:0.1em; }
+.lrow { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.18rem; }
+.dot { width:7px; height:7px; border-radius:50%; }
+</style>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+
+<header>
+  <h1>collect_data<span>.py</span></h1>
+  <p>Arabic Handwriting Labeling — Animated Dataflow</p>
+</header>
+
+<div id="stage">
+
+  <!-- STEP 1 -->
+  <div class="node env" id="n-env" style="left:490px;top:40px">
+    <div class="node-title"><span class="sn">1</span><span class="badge bb">INIT</span> Environment Setup</div>
+    <div class="node-body">
+      <code>load_dotenv()</code> reads <code>.env</code><br>
+      Injects <code>OPENAI_API_KEY</code> into env<br>
+      Imports: <code>openai · base64 · json · pathlib</code>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="node config" id="n-client" style="left:80px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge bg">CLIENT</span> OpenAI Client</div>
+    <div class="node-body">
+      <code>client = openai.OpenAI()</code><br>
+      Auth via env key<br>
+      Shared across all calls
+    </div>
+  </div>
+
+  <div class="node config" id="n-prompt" style="left:840px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge bg">PROMPT</span> System Prompt</div>
+    <div class="node-body">
+      Role: Arabic OCR system<br>
+      Output: <code>&#123;"transcription","confidence"&#125;</code><br>
+      Returns <strong>JSON only</strong>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="node func" id="n-main" style="left:490px;top:440px">
+    <div class="node-title"><span class="sn">3</span><span class="badge by">MAIN</span> main()</div>
+    <div class="node-body">
+      image_dir = <code>data/raw</code><br>
+      output_file = <code>data/gpt_labels.jsonl</code><br>
+      <code>Path.glob("*.png")</code> + <code>glob("*.jpg")</code><br>
+      Loop: iterates all images
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="node io" id="n-disk" style="left:80px;top:640px">
+    <div class="node-title"><span class="sn">4</span><span class="badge bp">I/O</span> Raw Images</div>
+    <div class="node-body">
+      Scans <code>data/raw/*.png</code><br>
+      Scans <code>data/raw/*.jpg</code><br>
+      Returns sorted merged list
+    </div>
+  </div>
+
+  <div class="node func" id="n-label" style="left:840px;top:640px">
+    <div class="node-title"><span class="sn">4</span><span class="badge by">FN</span> label_image(path)</div>
+    <div class="node-body">
+      Opens file <code>rb</code>, base64-encodes<br>
+      Detects MIME from extension<br>
+      Builds multimodal message payload
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="node api" id="n-api" style="left:490px;top:840px">
+    <div class="node-title"><span class="sn">5</span><span class="badge br">API</span> GPT Vision Request</div>
+    <div class="node-body">
+      model: <code>gpt-5.2</code><br>
+      <code>max_tokens</code>: 2048 &nbsp;·&nbsp; <code>temp</code>: 0.0<br>
+      Payload: system prompt + base64 image<br>
+      Returns: <code>ChatCompletion</code> object
+    </div>
+  </div>
+
+  <!-- STEP 6 -->
+  <div class="node func" id="n-parse" style="left:80px;top:1040px">
+    <div class="node-title"><span class="sn">6</span><span class="badge by">PARSE</span> Build Result Dict</div>
+    <div class="node-body">
+      Extracts <code>choices[0].message.content</code><br>
+      Captures <code>model</code>, token usage<br>
+      Returns structured <code>dict</code>
+    </div>
+  </div>
+
+  <div class="node func" id="n-err" style="left:840px;top:1040px">
+    <div class="node-title"><span class="sn">6</span><span class="badge by">ERR</span> Exception Handler</div>
+    <div class="node-body">
+      Catches any <code>Exception</code><br>
+      Prints error → <code>continue</code> loop<br>
+      Non-fatal — pipeline keeps running
+    </div>
+  </div>
+
+  <!-- STEP 7 -->
+  <div class="node out" id="n-out" style="left:490px;top:1240px">
+    <div class="node-title"><span class="sn">7</span><span class="badge bg">OUT</span> gpt_labels.jsonl</div>
+    <div class="node-body">
+      Opened append mode <code>"a"</code><br>
+      Each result: <code>json.dumps()</code> + newline<br>
+      <code>f.flush()</code> after every write<br>
+      Crash-safe incremental progress
+    </div>
+  </div>
+
+</div><!-- /stage -->
+
+<div class="legend">
+  <div class="legend-title">NODE TYPES</div>
+  <div class="lrow"><div class="dot" style="background:#58a6ff"></div> Init / Env</div>
+  <div class="lrow"><div class="dot" style="background:#3fb950"></div> Config / Output</div>
+  <div class="lrow"><div class="dot" style="background:#d29922"></div> Function / Logic</div>
+  <div class="lrow"><div class="dot" style="background:#bc8cff"></div> I/O (disk)</div>
+  <div class="lrow"><div class="dot" style="background:#ff7b72"></div> External API</div>
+</div>
+
+<script>
+const GRID   = 40;
+const RADIUS = 14;   // corner rounding
+const canvas = document.getElementById('cv');
+const ctx    = canvas.getContext('2d');
+let   tick   = 0;
+let   ROUTES = [];
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function snap(v) { return Math.round(v / GRID) * GRID; }
+
+function getEl(id) {
+  const el = document.getElementById(id);
+  const r  = el.getBoundingClientRect();
+  const sx = window.scrollX, sy = window.scrollY;
+  return {
+    left:   r.left   + sx,  top:    r.top    + sy,
+    right:  r.right  + sx,  bottom: r.bottom + sy,
+    cx:     r.left + r.width  / 2 + sx,
+    cy:     r.top  + r.height / 2 + sy,
+  };
+}
+
+// total length of a polyline
+function polyLen(pts) {
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+    len += Math.sqrt(dx*dx + dy*dy);
+  }
+  return len;
+}
+
+// point at normalised t [0,1] along polyline
+function polyAt(pts, t) {
+  const total  = polyLen(pts);
+  let   remain = total * Math.max(0, Math.min(1, t));
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+    const seg = Math.sqrt(dx*dx + dy*dy);
+    if (remain <= seg || i === pts.length - 1) {
+      const f = seg > 0 ? remain / seg : 0;
+      return { x: pts[i-1].x + dx * f, y: pts[i-1].y + dy * f };
+    }
+    remain -= seg;
+  }
+  return pts[pts.length - 1];
+}
+
+// ── route builder ─────────────────────────────────────────────────────────────
+
+function buildRoutes() {
+  const N = {};
+  for (const id of ['n-env','n-client','n-prompt','n-main','n-disk','n-label','n-api','n-parse','n-err','n-out'])
+    N[id] = getEl(id);
+
+  const env    = N['n-env'];
+  const client = N['n-client'];
+  const prompt = N['n-prompt'];
+  const main   = N['n-main'];
+  const disk   = N['n-disk'];
+  const label  = N['n-label'];
+  const api    = N['n-api'];
+  const parse  = N['n-parse'];
+  const err    = N['n-err'];
+  const out    = N['n-out'];
+
+  // horizontal corridors between rows — snapped to grid
+  const Y01 = snap((env.bottom    + client.top) / 2);  // ~200
+  const Y12 = snap((client.bottom + main.top)   / 2);  // ~400
+  const Y23 = snap((main.bottom   + disk.top)   / 2);  // ~600
+  const Y34 = snap((disk.bottom   + api.top)    / 2);  // ~800
+  const Y45 = snap((api.bottom    + parse.top)  / 2);  // ~1000
+  const Y56 = snap((parse.bottom  + out.top)    / 2);  // ~1160
+
+  // vertical corridors
+  const XR1 = snap(main.right + 60);      // right-side call corridor  ~780
+  const XR2 = snap(err.right  + 60);      // far-right loop corridor   ~1120
+
+  ROUTES = [
+    // ①→② env → client
+    { pts:[{x:env.cx,y:env.bottom},{x:env.cx,y:Y01},{x:client.cx,y:Y01},{x:client.cx,y:client.top}],
+      color:'#58a6ff', label:'API key', speed:1.0 },
+
+    // ①→② env → prompt
+    { pts:[{x:env.cx,y:env.bottom},{x:env.cx,y:Y01},{x:prompt.cx,y:Y01},{x:prompt.cx,y:prompt.top}],
+      color:'#58a6ff', label:'', speed:1.0 },
+
+    // ②→③ client → main  (offset left so lines don't merge at main.top)
+    { pts:[{x:client.cx,y:client.bottom},{x:client.cx,y:Y12},{x:main.cx-28,y:Y12},{x:main.cx-28,y:main.top}],
+      color:'#3fb950', label:'client ref', speed:0.9 },
+
+    // ②→③ prompt → main  (offset right)
+    { pts:[{x:prompt.cx,y:prompt.bottom},{x:prompt.cx,y:Y12},{x:main.cx+28,y:Y12},{x:main.cx+28,y:main.top}],
+      color:'#3fb950', label:'sys prompt', speed:0.9 },
+
+    // ③→④ main → disk  (straight down, offset left at top of disk)
+    { pts:[{x:main.cx,y:main.bottom},{x:main.cx,y:Y23},{x:disk.cx,y:Y23},{x:disk.cx,y:disk.top}],
+      color:'#bc8cff', label:'glob images', speed:0.85 },
+
+    // ④→④ disk → label  (horizontal — same row)
+    { pts:[{x:disk.right,y:disk.cy},{x:label.left,y:disk.cy}],
+      color:'#bc8cff', label:'img path', speed:0.85 },
+
+    // ③→④ main → label_image  (call, via right corridor XR1)
+    { pts:[
+        {x:main.right, y:main.cy},
+        {x:XR1,        y:main.cy},
+        {x:XR1,        y:Y23},
+        {x:label.cx,   y:Y23},
+        {x:label.cx,   y:label.top}
+      ],
+      color:'#d29922', label:'call', speed:0.85 },
+
+    // ④→⑤ label → api
+    { pts:[{x:label.cx,y:label.bottom},{x:label.cx,y:Y34},{x:api.cx,y:Y34},{x:api.cx,y:api.top}],
+      color:'#ff7b72', label:'base64+MIME', speed:0.8 },
+
+    // ⑤→⑥ api → parse  (success path)
+    { pts:[{x:api.cx,y:api.bottom},{x:api.cx,y:Y45},{x:parse.cx,y:Y45},{x:parse.cx,y:parse.top}],
+      color:'#ff7b72', label:'completion', speed:0.8 },
+
+    // ⑤→⑥ api → err  (exception path, via XR1 corridor)
+    { pts:[
+        {x:api.right,  y:api.cy},
+        {x:XR1,        y:api.cy},
+        {x:XR1,        y:Y45},
+        {x:err.cx,     y:Y45},
+        {x:err.cx,     y:err.top}
+      ],
+      color:'#e3b341', label:'exception', speed:0.75 },
+
+    // ⑥→⑦ parse → out
+    { pts:[{x:parse.cx,y:parse.bottom},{x:parse.cx,y:Y56},{x:out.cx,y:Y56},{x:out.cx,y:out.top}],
+      color:'#3fb950', label:'result dict', speed:0.9 },
+
+    // ⑥→③ err → main  (LOOP BACK — far right corridor XR2)
+    { pts:[
+        {x:err.right,  y:err.cy},
+        {x:XR2,        y:err.cy},
+        {x:XR2,        y:main.cy},
+        {x:main.right, y:main.cy}
+      ],
+      color:'#e3b341', label:'↺ loop back', speed:0.65 },
+  ];
+}
+
+// ── draw a single route ───────────────────────────────────────────────────────
+
+function buildPathCmds(pts, r) {
+  // Returns a function that draws the path on ctx (shared)
+  return () => {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const prev = pts[i - 1], curr = pts[i], next = pts[i + 1];
+      const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+      const l1  = Math.sqrt(dx1*dx1 + dy1*dy1) || 1;
+      const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+      const l2  = Math.sqrt(dx2*dx2 + dy2*dy2) || 1;
+      const rr  = Math.min(r, l1 / 2, l2 / 2);
+      const bx  = curr.x - (dx1 / l1) * rr;
+      const by  = curr.y - (dy1 / l1) * rr;
+      const ax  = curr.x + (dx2 / l2) * rr;
+      const ay  = curr.y + (dy2 / l2) * rr;
+      ctx.lineTo(bx, by);
+      ctx.quadraticCurveTo(curr.x, curr.y, ax, ay);
+    }
+    ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+  };
+}
+
+function arrowHead(pts, color) {
+  const n  = pts.length;
+  const dx = pts[n-1].x - pts[n-2].x;
+  const dy = pts[n-1].y - pts[n-2].y;
+  const a  = Math.atan2(dy, dx);
+  const sz = 9;
+  const px = pts[n-1].x, py = pts[n-1].y;
+  ctx.save();
+  ctx.fillStyle   = color + 'ee';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 10;
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px - sz * Math.cos(a - 0.38), py - sz * Math.sin(a - 0.38));
+  ctx.lineTo(px - sz * Math.cos(a + 0.38), py - sz * Math.sin(a + 0.38));
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawRoute(route, dashOff) {
+  const { pts, color, label } = route;
+  const draw = buildPathCmds(pts, RADIUS);
+
+  // glow layer
+  ctx.save();
+  ctx.strokeStyle = color + '2a';
+  ctx.lineWidth   = 5;
+  ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 12;
+  draw();
+  ctx.stroke();
+  ctx.restore();
+
+  // dashed animated line
+  ctx.save();
+  ctx.strokeStyle    = color + 'c0';
+  ctx.lineWidth      = 1.5;
+  ctx.lineJoin       = 'round';
+  ctx.lineCap        = 'round';
+  ctx.setLineDash([7, 6]);
+  ctx.lineDashOffset = -dashOff;
+  draw();
+  ctx.stroke();
+  ctx.restore();
+
+  // travelling dot
+  const tDot = ((dashOff % 26) / 26);
+  const dot  = polyAt(pts, tDot);
+  ctx.save();
+  ctx.fillStyle   = '#fff';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 16;
+  ctx.beginPath();
+  ctx.arc(dot.x, dot.y, 2.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // arrowhead
+  arrowHead(pts, color);
+
+  // label at midpoint of polyline
+  if (label) {
+    const mid = polyAt(pts, 0.5);
+    ctx.save();
+    ctx.font         = '600 9.5px Fira Code, monospace';
+    ctx.fillStyle    = color;
+    ctx.globalAlpha  = 0.9;
+    ctx.textAlign    = 'center';
+    ctx.shadowColor  = '#0a0c10';
+    ctx.shadowBlur   = 4;
+    ctx.fillText(label, mid.x, mid.y - 8);
+    ctx.restore();
+  }
+}
+
+// ── render loop ───────────────────────────────────────────────────────────────
+
+function render() {
+  canvas.width  = Math.max(document.documentElement.scrollWidth,  1200);
+  canvas.height = Math.max(document.documentElement.scrollHeight, 1500);
+
+  tick += 0.08;   // slower animation
+
+  ROUTES.forEach((route, i) => {
+    const speed  = route.speed ?? 1;
+    const dashOff = (tick * speed + i * 18) % 600;
+    drawRoute(route, dashOff);
+  });
+
+  requestAnimationFrame(render);
+}
+
+// ── init ──────────────────────────────────────────────────────────────────────
+
+window.addEventListener('load', () => {
+  buildRoutes();
+  render();
+});
+
+window.addEventListener('resize', buildRoutes);
+</script>
+</body>
+</html>
