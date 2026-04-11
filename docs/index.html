@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NLP Pipeline — Visualizations</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0a0c10;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  color: #c9d1d9;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(48,54,61,0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(48,54,61,0.4) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  text-align: center;
+  padding: 3rem 1rem 2rem;
+  position: relative;
+  z-index: 10;
+}
+
+header h1 {
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #58a6ff;
+}
+
+header h1 span { color: #3fb950; }
+
+header p {
+  font-size: 0.7rem;
+  color: #484f58;
+  letter-spacing: 0.12em;
+  margin-top: 0.4rem;
+}
+
+main {
+  position: relative;
+  z-index: 10;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 4rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1rem;
+}
+
+a.card {
+  display: block;
+  text-decoration: none;
+  background: rgba(22, 27, 34, 0.85);
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1.2rem 1.4rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+a.card:hover {
+  border-color: #58a6ff;
+  background: rgba(31, 38, 50, 0.95);
+}
+
+.card-num {
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: #484f58;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+}
+
+.card-title {
+  font-size: 0.88rem;
+  color: #58a6ff;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.5rem;
+}
+
+.card-desc {
+  font-size: 0.7rem;
+  color: #8b949e;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+}
+
+.card-tag {
+  display: inline-block;
+  margin-top: 0.8rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  color: #3fb950;
+  border: 1px solid #238636;
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  text-transform: uppercase;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NLP Pipeline — <span>Flow Visualizations</span></h1>
+  <p>Arabic Handwriting Recognition · Fine-tuning Qwen2.5-VL-7B with LoRA</p>
+</header>
+
+<main>
+  <div class="grid">
+
+    <a class="card" href="pipeline_visualization/01-collect_data_flow.html">
+      <div class="card-num">01 / collect_data.py</div>
+      <div class="card-title">Data Collection Flow</div>
+      <div class="card-desc">GPT-4 Vision API labels Arabic handwritten images. Covers env setup, client init, image reading, API calls, and JSON output.</div>
+      <span class="card-tag">OpenAI API</span>
+    </a>
+
+    <a class="card" href="pipeline_visualization/02-transform_data_flow.html">
+      <div class="card-num">02 / transform_data.py</div>
+      <div class="card-title">Data Transformation Flow</div>
+      <div class="card-desc">Converts GPT labels to Qwen training format. JSONL parsing, base64 image encoding, sample validation, shuffling, and 80/20 train/eval split.</div>
+      <span class="card-tag">Preprocessing</span>
+    </a>
+
+    <a class="card" href="pipeline_visualization/03-config_flow.html">
+      <div class="card-num">03 / config.py</div>
+      <div class="card-title">Configuration Hub</div>
+      <div class="card-desc">Centralizes all hyperparameters — model config, LoRA settings, training args, quantization, image bounds, and I/O paths.</div>
+      <span class="card-tag">Config</span>
+    </a>
+
+    <a class="card" href="pipeline_visualization/04-train_flow.html">
+      <div class="card-num">04 / train.py</div>
+      <div class="card-title">Training Pipeline</div>
+      <div class="card-desc">LoRA fine-tuning on Qwen2.5-VL-7B. Quantization, model loading, processor init, LoRA adapter setup, dataset loading, and model saving.</div>
+      <span class="card-tag">Fine-tuning</span>
+    </a>
+
+    <a class="card" href="pipeline_visualization/05-evaluate_flow.html">
+      <div class="card-num">05 / evaluate.py</div>
+      <div class="card-title">Evaluation Pipeline</div>
+      <div class="card-desc">Base model + LoRA adapter merging, inference generation, JSON parsing, and metric computation — CER, WER, exact match.</div>
+      <span class="card-tag">Metrics</span>
+    </a>
+
+    <a class="card" href="pipeline_visualization/06-vllm_launch_flow.html">
+      <div class="card-num">06 / vllm launch</div>
+      <div class="card-title">vLLM Server Launch</div>
+      <div class="card-desc">vLLM inference server startup with LoRA args, GPU memory config, LoRA registry, rank mismatch warnings, and OpenAI-compatible API setup.</div>
+      <span class="card-tag">Inference</span>
+    </a>
+
+    <a class="card" href="pipeline_visualization/07-vllm_test_flow.html">
+      <div class="card-num">07 / vllm test</div>
+      <div class="card-title">vLLM Server Test</div>
+      <div class="card-desc">Tests three endpoints: health check, model listing, and inference requests. Documents request/response structures and curl examples.</div>
+      <span class="card-tag">Testing</span>
+    </a>
+
+  </div>
+</main>
+
+</body>
+</html>
