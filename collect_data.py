@@ -45,8 +45,8 @@ def label_image(image_path: str) -> dict:
         "gpt_response": response.choices[0].message.content,
         "model": response.model,
         "usage": {
-            "prompt_tokens": response.usage.prompt_tokens,
-            "completion_tokens": response.usage.completion_tokens
+            "prompt_tokens": response.usage.prompt_tokens, # pyright: ignore[reportOptionalMemberAccess]
+            "completion_tokens": response.usage.completion_tokens # pyright: ignore[reportOptionalMemberAccess]
         }
     }
 
