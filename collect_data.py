@@ -5,6 +5,7 @@ import openai
 import base64
 import json
 import os
+import time
 from pathlib import Path
 
 client = openai.OpenAI()
@@ -36,7 +37,7 @@ def label_image(image_path: str) -> dict:
                 }}
             ]}
         ],
-        max_tokens=2048,
+        max_completion_tokens=2048,
         temperature=0.0
     )
 
@@ -51,7 +52,7 @@ def label_image(image_path: str) -> dict:
     }
 
 def main():
-    image_dir = "data/raw"
+    image_dir = "data/raw_png"
     output_file = "data/gpt_labels.jsonl"
 
     images = sorted(Path(image_dir).glob("*.png")) + \
@@ -59,18 +60,28 @@ def main():
 
     print(f"Found {len(images)} images to label")
 
+    total_start = time.perf_counter()
+
     with open(output_file, "a") as f:
         for i, img_path in enumerate(images):
-            print(f"[{i+1}/{len(images)}] Labeling {img_path.name}...")
+            print(f"[{i+1}/{len(images)}] Labeling {img_path.name}...", end=" ", flush=True)
+            img_start = time.perf_counter()
             try:
                 result = label_image(str(img_path))
+                elapsed = time.perf_counter() - img_start
+                print(f"({elapsed:.2f}s)")
                 f.write(json.dumps(result, ensure_ascii=False) + "\n")
                 f.flush()
             except Exception as e:
+                elapsed = time.perf_counter() - img_start
+                print(f"({elapsed:.2f}s)")
                 print(f"ERROR: {e}")
                 continue
 
+    total_elapsed = time.perf_counter() - total_start
+    mins, secs = divmod(total_elapsed, 60)
     print(f"Done! Labels saved to {output_file}")
+    print(f"Total time: {int(mins)}m {secs:.2f}s")
 
 if __name__ == "__main__":
     main()
