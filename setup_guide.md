@@ -163,27 +163,75 @@ sudo reboot
 
 ### 3.1 Create a Virtual Environment
 
+**Option A — Conda (recommended on the AWS Deep Learning AMI)**
+
+The Deep Learning AMI ships with conda pre-installed. Use this on the GPU instance.
+
 ```bash
-# The Deep Learning AMI comes with conda
+# Create the environment
 conda create -n nlp python=3.11 -y
+
+# Activate
 conda activate nlp
+
+# Deactivate when done
+conda deactivate
 ```
+
+---
+
+**Option B — Python `venv` (for local machines or plain Ubuntu)**
+
+Use this if you are working locally (Stage 1 labeling, data prep) or on a machine without conda.
+
+**Linux / macOS**
+
+```bash
+# Create the virtual environment in the project directory
+python3 -m venv .venv
+
+# Activate
+source .venv/bin/activate
+
+# Deactivate when done
+deactivate
+```
+
+**Windows (Command Prompt)**
+
+```cmd
+# Create the virtual environment
+python -m venv .venv
+
+# Activate
+.venv\Scripts\activate.bat
+
+# Deactivate when done
+deactivate
+```
+
+**Windows (PowerShell)**
+
+```powershell
+# Create the virtual environment
+python -m venv .venv
+
+# Activate
+.venv\Scripts\Activate.ps1
+
+# Deactivate when done
+deactivate
+```
+
+> **NOTE (Windows PowerShell)**
+> If you get a script execution error, run this once to allow local scripts:
+> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
 ### 3.2 Install Dependencies
 
 ```bash
 pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-pip3 install \
-    transformers>=4.40 \
-    peft>=0.10 \
-    bitsandbytes>=0.43 \
-    accelerate>=0.30 \
-    datasets \
-    Pillow \
-    PyMuPDF \
-    openai \
-    trl \
-    wandb
+pip3 install transformers>=4.40 peft>=0.10 bitsandbytes>=0.43 accelerate>=0.30 datasets Pillow PyMuPDF openai trl wandb
 
 # For inference server (install later, or now)
 pip3 install vllm>=0.4
@@ -225,8 +273,81 @@ git clone https://github.com/YOUR_REPO.git .
 
 ### 4.1 Set Your OpenAI API Key
 
+**Linux / macOS**
+
 ```bash
 export OPENAI_API_KEY="sk-your-key-here"
+```
+
+**Windows (Command Prompt)**
+
+```cmd
+set OPENAI_API_KEY=sk-your-key-here
+```
+
+**Windows (PowerShell)**
+
+```powershell
+$env:OPENAI_API_KEY = "sk-your-key-here"
+```
+
+> **NOTE**
+> These commands set the key only for the current shell session. Use section 4.1.1 below for a persistent approach.
+
+### 4.1.1 Alternative: Store the API Key in a `.env` File
+
+Instead of exporting the key every session, store it in a `.env` file in your project directory. This approach works on all platforms and persists across sessions.
+
+**Step 1 — Create the `.env` file**
+
+```bash
+# Linux / macOS / Git Bash on Windows
+echo 'OPENAI_API_KEY=sk-your-key-here' > .env
+```
+
+Or create the file manually with any text editor and add:
+
+```
+OPENAI_API_KEY=sk-your-key-here
+```
+
+**Step 2 — Add `.env` to `.gitignore` (IMPORTANT)**
+
+```bash
+echo '.env' >> .gitignore
+```
+
+Never commit your API key to git. This step is mandatory.
+
+**Step 3 — Load the key at runtime**
+
+Install `python-dotenv`:
+
+```bash
+pip3 install python-dotenv
+```
+
+Then add these two lines to the top of any script that needs the key:
+
+```python
+from dotenv import load_dotenv
+load_dotenv()  # reads .env and sets environment variables
+```
+
+After this, `os.environ["OPENAI_API_KEY"]` will work as normal.
+
+**Alternative — Load from the shell (no code change needed)**
+
+```bash
+# Linux / macOS
+set -a && source .env && set +a
+
+# Windows PowerShell
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]+)=(.*)$') {
+        [System.Environment]::SetEnvironmentVariable($matches[1].Trim(), $matches[2].Trim(), 'Process')
+    }
+}
 ```
 
 ### 4.2 Create the GPT Labeling Script
