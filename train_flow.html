@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>train.py — LoRA Fine-Tuning Pipeline</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0c10;font-family:'Fira Code','Cascadia Code',monospace;color:#c9d1d9;overflow-x:auto;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(48,54,61,0.4) 1px,transparent 1px),linear-gradient(90deg,rgba(48,54,61,0.4) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+header{text-align:center;padding:1.5rem 1rem 0.4rem;position:relative;z-index:10;}
+header h1{font-size:1rem;letter-spacing:.2em;text-transform:uppercase;color:#58a6ff;}
+header h1 span{color:#3fb950;}
+header p{font-size:.68rem;color:#484f58;letter-spacing:.12em;margin-top:.2rem;}
+#cv{position:absolute;top:0;left:0;pointer-events:none;z-index:2;}
+#stage{position:relative;width:1200px;height:1460px;margin:0 auto;z-index:5;}
+.node{position:absolute;width:220px;border:1px solid;border-radius:4px;padding:.8rem 1rem;backdrop-filter:blur(6px);transition:transform .2s,box-shadow .2s;cursor:default;z-index:6;}
+.node:hover{transform:translateY(-2px);box-shadow:0 0 24px var(--glow);}
+.node.env{--glow:rgba(88,166,255,.55);background:rgba(22,44,78,.4);border-color:rgba(88,166,255,.5);}
+.node.config{--glow:rgba(63,185,80,.5);background:rgba(16,46,22,.4);border-color:rgba(63,185,80,.5);}
+.node.func{--glow:rgba(210,153,34,.55);background:rgba(48,36,8,.45);border-color:rgba(210,153,34,.5);}
+.node.io{--glow:rgba(188,140,255,.5);background:rgba(40,22,68,.4);border-color:rgba(188,140,255,.5);}
+.node.api{--glow:rgba(255,123,114,.5);background:rgba(68,16,16,.4);border-color:rgba(255,123,114,.5);}
+.node.out{--glow:rgba(63,185,80,.55);background:rgba(10,40,16,.45);border-color:rgba(63,185,80,.5);}
+.node-title{font-size:.72rem;font-weight:700;letter-spacing:.06em;margin-bottom:.42rem;display:flex;align-items:center;gap:.38rem;}
+.node.env .node-title{color:#58a6ff;}.node.config .node-title{color:#3fb950;}.node.func .node-title{color:#d29922;}.node.io .node-title{color:#bc8cff;}.node.api .node-title{color:#ff7b72;}.node.out .node-title{color:#3fb950;}
+.node-body{font-size:.63rem;color:#8b949e;line-height:1.58;}
+.node-body code{color:#e3b341;background:rgba(255,255,255,.05);padding:.02rem .2rem;border-radius:2px;font-size:.61rem;}
+.badge{font-size:.54rem;padding:.07rem .32rem;border-radius:2px;letter-spacing:.05em;font-weight:700;}
+.bb{background:rgba(88,166,255,.16);color:#58a6ff;border:1px solid rgba(88,166,255,.35);}
+.bg{background:rgba(63,185,80,.16);color:#3fb950;border:1px solid rgba(63,185,80,.35);}
+.by{background:rgba(210,153,34,.16);color:#d29922;border:1px solid rgba(210,153,34,.35);}
+.bp{background:rgba(188,140,255,.16);color:#bc8cff;border:1px solid rgba(188,140,255,.35);}
+.br{background:rgba(255,123,114,.16);color:#ff7b72;border:1px solid rgba(255,123,114,.35);}
+.sn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);font-size:.58rem;font-weight:700;color:#5a6370;flex-shrink:0;}
+.legend{position:fixed;bottom:1.2rem;right:1.4rem;background:rgba(13,17,23,.9);border:1px solid #30363d;border-radius:4px;padding:.6rem .9rem;font-size:.6rem;color:#484f58;z-index:20;backdrop-filter:blur(8px);}
+.legend-title{color:#6e7681;font-weight:700;margin-bottom:.3rem;letter-spacing:.1em;}
+.lrow{display:flex;align-items:center;gap:.4rem;margin-bottom:.18rem;}
+.dot{width:7px;height:7px;border-radius:50%;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<header>
+  <h1>train<span>.py</span></h1>
+  <p>LoRA Fine-Tuning Pipeline — Qwen2.5-VL-7B on A10G GPU</p>
+</header>
+<div id="stage">
+
+  <div id="n-cfg" class="node env" style="left:490px;top:40px;">
+    <div class="node-title"><span class="sn">1</span> CFG &nbsp;<span class="badge bb">config.py</span></div>
+    <div class="node-body">
+      <code>BASE_MODEL</code>: Qwen2.5-VL-7B-Instruct<br>
+      <code>MAX_SEQ_LENGTH</code>: 8192<br>
+      All hyperparams imported via: <code>import config</code>
+    </div>
+  </div>
+
+  <div id="n-bnb" class="node io" style="left:80px;top:240px;">
+    <div class="node-title"><span class="sn">2</span> QUANT &nbsp;<span class="badge bp">BitsAndBytesConfig</span></div>
+    <div class="node-body">
+      <code>load_in_4bit=True</code><br>
+      <code>bnb_4bit_quant_type="nf4"</code><br>
+      <code>compute_dtype=bfloat16</code><br>
+      <code>use_double_quant=True</code>
+    </div>
+  </div>
+
+  <div id="n-model" class="node api" style="left:840px;top:240px;">
+    <div class="node-title"><span class="sn">2</span> MODEL &nbsp;<span class="badge br">Load Qwen2.5-VL-7B</span></div>
+    <div class="node-body">
+      <code>from_pretrained(BASE_MODEL)</code><br>
+      <code>quantization_config=bnb_config</code><br>
+      <code>device_map="auto"</code><br>
+      <code>attn_implementation="sdpa"</code>
+    </div>
+  </div>
+
+  <div id="n-proc" class="node func" style="left:840px;top:460px;">
+    <div class="node-title"><span class="sn">3</span> PROC &nbsp;<span class="badge by">AutoProcessor</span></div>
+    <div class="node-body">
+      <code>from_pretrained(BASE_MODEL)</code><br>
+      <code>min_pixels=config.MIN_PIXELS</code><br>
+      <code>max_pixels=config.MAX_PIXELS</code>
+    </div>
+  </div>
+
+  <div id="n-kbit" class="node func" style="left:490px;top:460px;">
+    <div class="node-title"><span class="sn">3</span> PREP &nbsp;<span class="badge by">prepare_for_kbit</span></div>
+    <div class="node-body">
+      <code>prepare_model_for_kbit_training(model)</code><br>
+      Enables gradient checkpointing<br>
+      Casts layer norms to float32
+    </div>
+  </div>
+
+  <div id="n-lora" class="node io" style="left:80px;top:460px;">
+    <div class="node-title"><span class="sn">3</span> LORA &nbsp;<span class="badge bp">LoraConfig</span></div>
+    <div class="node-body">
+      <code>r=32</code> | <code>alpha=64</code> | <code>dropout=0.05</code><br>
+      Targets: q/k/v/o/gate/up/down_proj<br>
+      <code>task_type="CAUSAL_LM"</code>
+    </div>
+  </div>
+
+  <div id="n-peft" class="node func" style="left:490px;top:680px;">
+    <div class="node-title"><span class="sn">4</span> PEFT &nbsp;<span class="badge by">get_peft_model</span></div>
+    <div class="node-body">
+      <code>model = get_peft_model(model, lora_cfg)</code><br>
+      Trainable: ~1.93% of all params<br>
+      ~159M trainable / 8.29B total
+    </div>
+  </div>
+
+  <div id="n-ds" class="node io" style="left:80px;top:880px;">
+    <div class="node-title"><span class="sn">5</span> DS &nbsp;<span class="badge bp">ArabicHTRDataset</span></div>
+    <div class="node-body">
+      Reads JSONL samples<br>
+      <code>apply_chat_template</code> per sample<br>
+      <code>processor(text, return_tensors="pt")</code><br>
+      <code>labels = input_ids.clone()</code>
+    </div>
+  </div>
+
+  <div id="n-dload" class="node func" style="left:840px;top:880px;">
+    <div class="node-title"><span class="sn">5</span> LOAD &nbsp;<span class="badge by">Load Datasets</span></div>
+    <div class="node-body">
+      <code>train_dataset</code> from TRAIN_DATA<br>
+      <code>eval_dataset</code> from EVAL_DATA<br>
+      Validates <code>len &gt; 0</code><br>
+      Prints sample counts
+    </div>
+  </div>
+
+  <div id="n-args" class="node func" style="left:490px;top:880px;">
+    <div class="node-title"><span class="sn">5</span> ARGS &nbsp;<span class="badge by">TrainingArguments</span></div>
+    <div class="node-body">
+      <code>output_dir</code> | <code>num_epochs=3</code><br>
+      <code>gradient_accumulation=2</code><br>
+      <code>lr=2e-5</code> | <code>scheduler=cosine</code><br>
+      <code>bf16=True</code> | gradient_checkpointing
+    </div>
+  </div>
+
+  <div id="n-trainer" class="node api" style="left:490px;top:1100px;">
+    <div class="node-title"><span class="sn">6</span> RUN &nbsp;<span class="badge br">Trainer.train()</span></div>
+    <div class="node-body">
+      model + args + train_ds + eval_ds<br>
+      Logs every 10 steps<br>
+      Saves checkpoint every epoch<br>
+      Eval at end of each epoch
+    </div>
+  </div>
+
+  <div id="n-save" class="node out" style="left:490px;top:1300px;">
+    <div class="node-title"><span class="sn">7</span> SAVE &nbsp;<span class="badge bg">Save Adapter</span></div>
+    <div class="node-body">
+      <code>model.save_pretrained(OUTPUT_DIR)</code><br>
+      <code>processor.save_pretrained(OUTPUT_DIR)</code><br>
+      Output: <code>models/lora_adapter/</code> (~380 MB)<br>
+      Adapter-only, not full model weights
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <div class="legend-title">NODE TYPES</div>
+  <div class="lrow"><div class="dot" style="background:#58a6ff;"></div> ENV / Config</div>
+  <div class="lrow"><div class="dot" style="background:#bc8cff;"></div> IO / Data</div>
+  <div class="lrow"><div class="dot" style="background:#d29922;"></div> FUNC / Transform</div>
+  <div class="lrow"><div class="dot" style="background:#ff7b72;"></div> API / Model</div>
+  <div class="lrow"><div class="dot" style="background:#3fb950;"></div> OUT / Result</div>
+</div>
+
+<script>
+const GRID=40,RADIUS=14;
+const canvas=document.getElementById('cv'),ctx=canvas.getContext('2d');
+let tick=0,ROUTES=[];
+function snap(v){return Math.round(v/GRID)*GRID;}
+function getEl(id){const el=document.getElementById(id),r=el.getBoundingClientRect(),sx=window.scrollX,sy=window.scrollY;return{left:r.left+sx,top:r.top+sy,right:r.right+sx,bottom:r.bottom+sy,cx:r.left+r.width/2+sx,cy:r.top+r.height/2+sy};}
+function polyLen(pts){let l=0;for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y;l+=Math.sqrt(dx*dx+dy*dy);}return l;}
+function polyAt(pts,t){const tot=polyLen(pts);let rem=tot*Math.max(0,Math.min(1,t));for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y,seg=Math.sqrt(dx*dx+dy*dy);if(rem<=seg||i===pts.length-1){const f=seg>0?rem/seg:0;return{x:pts[i-1].x+dx*f,y:pts[i-1].y+dy*f};}rem-=seg;}return pts[pts.length-1];}
+function buildPath(pts,r){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length-1;i++){const p=pts[i-1],c=pts[i],n=pts[i+1],dx1=c.x-p.x,dy1=c.y-p.y,l1=Math.sqrt(dx1*dx1+dy1*dy1)||1,dx2=n.x-c.x,dy2=n.y-c.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1,rr=Math.min(r,l1/2,l2/2),bx=c.x-(dx1/l1)*rr,by=c.y-(dy1/l1)*rr,ax=c.x+(dx2/l2)*rr,ay=c.y+(dy2/l2)*rr;ctx.lineTo(bx,by);ctx.quadraticCurveTo(c.x,c.y,ax,ay);}ctx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y);}
+function arrowHead(pts,color){const n=pts.length,dx=pts[n-1].x-pts[n-2].x,dy=pts[n-1].y-pts[n-2].y,a=Math.atan2(dy,dx),sz=9,px=pts[n-1].x,py=pts[n-1].y;ctx.save();ctx.fillStyle=color+'ee';ctx.shadowColor=color;ctx.shadowBlur=10;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-sz*Math.cos(a-0.38),py-sz*Math.sin(a-0.38));ctx.lineTo(px-sz*Math.cos(a+0.38),py-sz*Math.sin(a+0.38));ctx.closePath();ctx.fill();ctx.restore();}
+function drawRoute(route,dashOff){const{pts,color,label}=route;ctx.save();ctx.strokeStyle=color+'2a';ctx.lineWidth=5;ctx.lineJoin='round';ctx.lineCap='round';ctx.shadowColor=color;ctx.shadowBlur=12;buildPath(pts,RADIUS);ctx.stroke();ctx.restore();ctx.save();ctx.strokeStyle=color+'c0';ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.setLineDash([7,6]);ctx.lineDashOffset=-dashOff;buildPath(pts,RADIUS);ctx.stroke();ctx.restore();const tDot=((dashOff%26)/26),dot=polyAt(pts,tDot);ctx.save();ctx.fillStyle='#fff';ctx.shadowColor=color;ctx.shadowBlur=16;ctx.beginPath();ctx.arc(dot.x,dot.y,2.8,0,Math.PI*2);ctx.fill();ctx.restore();arrowHead(pts,color);if(label){const mid=polyAt(pts,0.5);ctx.save();ctx.font='600 9.5px Fira Code,monospace';ctx.fillStyle=color;ctx.globalAlpha=0.9;ctx.textAlign='center';ctx.shadowColor='#0a0c10';ctx.shadowBlur=4;ctx.fillText(label,mid.x,mid.y-8);ctx.restore();}}
+function render(){canvas.width=Math.max(document.documentElement.scrollWidth,1200);canvas.height=Math.max(document.documentElement.scrollHeight,600);tick+=0.08;ROUTES.forEach((route,i)=>{const speed=route.speed??1,dashOff=(tick*speed+i*18)%600;drawRoute(route,dashOff);});requestAnimationFrame(render);}
+
+function buildRoutes(){
+  const cfg=getEl('n-cfg'),bnb=getEl('n-bnb'),model=getEl('n-model'),
+        proc=getEl('n-proc'),kbit=getEl('n-kbit'),lora=getEl('n-lora'),
+        peft=getEl('n-peft'),ds=getEl('n-ds'),dload=getEl('n-dload'),
+        args=getEl('n-args'),trainer=getEl('n-trainer'),save=getEl('n-save');
+
+  const Y01=snap((cfg.bottom+bnb.top)/2);
+  const Y12=snap((bnb.bottom+kbit.top)/2);
+  const Y23=snap((kbit.bottom+ds.top)/2);
+  const Y34=snap((ds.bottom+trainer.top)/2);
+  const Y45=snap((trainer.bottom+save.top)/2);
+  const XR=snap(model.right+60);
+
+  ROUTES=[
+    // cfg fans down to row-1 nodes
+    {pts:[{x:cfg.cx,y:cfg.bottom},{x:cfg.cx,y:Y01},{x:bnb.cx,y:Y01},{x:bnb.cx,y:bnb.top}],color:'#58a6ff',label:'4-bit config',speed:0.9},
+    {pts:[{x:cfg.cx,y:cfg.bottom},{x:cfg.cx,y:Y01},{x:kbit.cx,y:Y01},{x:kbit.cx,y:kbit.top}],color:'#58a6ff',label:'',speed:0.9},
+    {pts:[{x:cfg.cx,y:cfg.bottom},{x:cfg.cx,y:Y01},{x:model.cx,y:Y01},{x:model.cx,y:model.top}],color:'#58a6ff',label:'BASE_MODEL',speed:0.9},
+
+    // bnb → model (horizontal, quantization config)
+    {pts:[{x:bnb.right,y:bnb.cy},{x:model.left,y:bnb.cy}],color:'#bc8cff',label:'quant config',speed:0.85},
+
+    // model → kbit (down from model, across to kbit)
+    {pts:[{x:model.cx,y:model.bottom},{x:model.cx,y:Y12},{x:kbit.cx+28,y:Y12},{x:kbit.cx+28,y:kbit.top}],color:'#ff7b72',label:'loaded model',speed:0.85},
+
+    // cfg → proc (right corridor, pixel bounds)
+    {pts:[{x:cfg.right,y:cfg.cy},{x:XR,y:cfg.cy},{x:XR,y:proc.cy},{x:proc.right,y:proc.cy}],color:'#58a6ff',label:'pixel bounds',speed:0.8},
+
+    // lora → kbit (horizontal)
+    {pts:[{x:lora.right,y:lora.cy},{x:kbit.left,y:lora.cy}],color:'#bc8cff',label:'lora cfg',speed:0.8},
+
+    // kbit → peft (down then across)
+    {pts:[{x:kbit.cx,y:kbit.bottom},{x:kbit.cx,y:Y23},{x:peft.cx,y:Y23},{x:peft.cx,y:peft.top}],color:'#d29922',label:'kbit model',speed:0.85},
+
+    // proc → dload
+    {pts:[{x:proc.cx,y:proc.bottom},{x:proc.cx,y:Y23},{x:dload.cx,y:Y23},{x:dload.cx,y:dload.top}],color:'#d29922',label:'processor',speed:0.8},
+
+    // ds → args
+    {pts:[{x:ds.right,y:ds.cy},{x:args.left,y:ds.cy}],color:'#bc8cff',label:'train_ds',speed:0.85},
+
+    // dload → args
+    {pts:[{x:dload.left,y:dload.cy},{x:args.right,y:dload.cy}],color:'#bc8cff',label:'eval_ds',speed:0.85},
+
+    // peft → trainer
+    {pts:[{x:peft.cx,y:peft.bottom},{x:peft.cx,y:Y34},{x:trainer.cx-28,y:Y34},{x:trainer.cx-28,y:trainer.top}],color:'#d29922',label:'peft model',speed:0.9},
+
+    // args → trainer
+    {pts:[{x:args.cx,y:args.bottom},{x:args.cx,y:Y34},{x:trainer.cx+28,y:Y34},{x:trainer.cx+28,y:trainer.top}],color:'#d29922',label:'train args',speed:0.9},
+
+    // trainer → save
+    {pts:[{x:trainer.cx,y:trainer.bottom},{x:trainer.cx,y:Y45},{x:save.cx,y:Y45},{x:save.cx,y:save.top}],color:'#3fb950',label:'trained model',speed:1.0},
+  ];
+}
+
+window.addEventListener('load',()=>{buildRoutes();render();});
+window.addEventListener('resize',buildRoutes);
+</script>
+</body>
+</html>
