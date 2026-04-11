@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>config.py — Hyperparameter Hub</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0a0c10;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  color: #c9d1d9;
+  overflow-x: auto;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(48,54,61,0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(48,54,61,0.4) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  text-align: center;
+  padding: 1.6rem 1rem 0.5rem;
+  position: relative;
+  z-index: 10;
+}
+header h1 {
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #58a6ff;
+}
+header h1 span { color: #3fb950; }
+header p {
+  font-size: 0.68rem;
+  color: #484f58;
+  letter-spacing: 0.12em;
+  margin-top: 0.2rem;
+}
+
+#cv {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#stage {
+  position: relative;
+  width: 1200px;
+  height: 920px;
+  margin: 0 auto;
+  z-index: 5;
+}
+
+.node {
+  position: absolute;
+  width: 220px;
+  border: 1px solid;
+  border-radius: 4px;
+  padding: 0.8rem 1rem;
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+  z-index: 6;
+}
+.node:hover { transform: translateY(-2px); box-shadow: 0 0 24px var(--glow); }
+
+.node.env    { --glow:rgba(88,166,255,.55); background:rgba(22,44,78,.4);   border-color:rgba(88,166,255,.5);  }
+.node.config { --glow:rgba(63,185,80,.5);   background:rgba(16,46,22,.4);   border-color:rgba(63,185,80,.5);   }
+.node.func   { --glow:rgba(210,153,34,.55); background:rgba(48,36,8,.45);   border-color:rgba(210,153,34,.5);  }
+.node.io     { --glow:rgba(188,140,255,.5); background:rgba(40,22,68,.4);   border-color:rgba(188,140,255,.5); }
+.node.api    { --glow:rgba(255,123,114,.5); background:rgba(68,16,16,.4);   border-color:rgba(255,123,114,.5); }
+.node.out    { --glow:rgba(63,185,80,.55);  background:rgba(10,40,16,.45);  border-color:rgba(63,185,80,.5);   }
+
+.node-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.42rem;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+.node.env    .node-title { color:#58a6ff; }
+.node.config .node-title { color:#3fb950; }
+.node.func   .node-title { color:#d29922; }
+.node.io     .node-title { color:#bc8cff; }
+.node.api    .node-title { color:#ff7b72; }
+.node.out    .node-title { color:#3fb950; }
+
+.node-body {
+  font-size: 0.63rem;
+  color: #8b949e;
+  line-height: 1.58;
+}
+.node-body code {
+  color: #e3b341;
+  background: rgba(255,255,255,.05);
+  padding: 0.02rem 0.2rem;
+  border-radius: 2px;
+  font-size: 0.61rem;
+}
+
+.badge {
+  font-size: 0.54rem;
+  padding: 0.07rem 0.32rem;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+.bb { background:rgba(88,166,255,.16);  color:#58a6ff; border:1px solid rgba(88,166,255,.35); }
+.bg { background:rgba(63,185,80,.16);   color:#3fb950; border:1px solid rgba(63,185,80,.35);  }
+.by { background:rgba(210,153,34,.16);  color:#d29922; border:1px solid rgba(210,153,34,.35); }
+.bp { background:rgba(188,140,255,.16); color:#bc8cff; border:1px solid rgba(188,140,255,.35);}
+.br { background:rgba(255,123,114,.16); color:#ff7b72; border:1px solid rgba(255,123,114,.35);}
+.bs { background:rgba(88,166,255,.16);  color:#58a6ff; border:1px solid rgba(88,166,255,.35); }
+
+.sn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:17px; height:17px; border-radius:50%;
+  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14);
+  font-size:0.58rem; font-weight:700; color:#5a6370; flex-shrink:0;
+}
+
+/* star badge for hub/consumer nodes */
+.sstar {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:17px; height:17px; border-radius:50%;
+  background:rgba(88,166,255,.14); border:1px solid rgba(88,166,255,.3);
+  font-size:0.6rem; font-weight:700; color:#58a6ff; flex-shrink:0;
+}
+
+.legend {
+  position: fixed;
+  bottom: 1.2rem; right: 1.4rem;
+  background: rgba(13,17,23,.9);
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.6rem;
+  color: #484f58;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+.legend-title { color:#6e7681; font-weight:700; margin-bottom:0.3rem; letter-spacing:0.1em; }
+.lrow { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.18rem; }
+.dot { width:7px; height:7px; border-radius:50%; }
+</style>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+
+<header>
+  <h1>config<span>.py</span> — Hyperparameter Hub</h1>
+  <p>All training configuration in one place</p>
+</header>
+
+<div id="stage">
+
+  <!-- ROW 0: Hub -->
+  <div class="node env" id="n-cfg" style="left:490px;top:40px">
+    <div class="node-title"><span class="sstar">★</span><span class="badge bb">CFG</span> config.py</div>
+    <div class="node-body">
+      Central configuration hub<br>
+      All hyperparameters defined here<br>
+      Imported by <code>train.py</code> and <code>evaluate.py</code>
+    </div>
+  </div>
+
+  <!-- ROW 1: 3 sections -->
+  <div class="node config" id="n-model" style="left:80px;top:240px">
+    <div class="node-title"><span class="sn">1</span><span class="badge bg">MODEL</span> Base Model</div>
+    <div class="node-body">
+      <code>BASE_MODEL</code>: Qwen2.5-VL-7B-Instruct<br>
+      <code>MAX_SEQ_LENGTH</code>: 8192<br>
+      ⚠ Do NOT reduce below 8192
+    </div>
+  </div>
+
+  <div class="node func" id="n-lora" style="left:490px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge by">LORA</span> LoRA Adapter</div>
+    <div class="node-body">
+      <code>R</code>=32 &nbsp;·&nbsp; <code>ALPHA</code>=64<br>
+      <code>DROPOUT</code>=0.05<br>
+      Targets: <code>q/k/v/o/gate/up/down_proj</code>
+    </div>
+  </div>
+
+  <div class="node func" id="n-train-cfg" style="left:860px;top:240px">
+    <div class="node-title"><span class="sn">3</span><span class="badge by">TRAIN</span> Training Hyperparams</div>
+    <div class="node-body">
+      <code>EPOCHS</code>=3 &nbsp;·&nbsp; <code>BATCH</code>=1<br>
+      <code>GRAD_ACCUM</code>=2 &nbsp;·&nbsp; <code>LR</code>=2e-5<br>
+      <code>SCHEDULER</code>=cosine &nbsp;·&nbsp; <code>WARMUP</code>=0.1
+    </div>
+  </div>
+
+  <!-- ROW 2: 3 sections -->
+  <div class="node io" id="n-imgcfg" style="left:80px;top:480px">
+    <div class="node-title"><span class="sn">4</span><span class="badge bp">IMAGE</span> Pixel Bounds</div>
+    <div class="node-body">
+      <code>MIN_PIXELS</code>=3,136 (4×28²)<br>
+      <code>MAX_PIXELS</code>=100,352 (128×28²)<br>
+      <code>DPI</code>=100<br>
+      ⚠ Must match train AND inference
+    </div>
+  </div>
+
+  <div class="node api" id="n-quant" style="left:490px;top:480px">
+    <div class="node-title"><span class="sn">5</span><span class="badge br">QUANT</span> 4-bit Quantization</div>
+    <div class="node-body">
+      <code>LOAD_IN_4BIT</code>=True<br>
+      <code>QUANT_TYPE</code>="nf4"<br>
+      <code>COMPUTE_DTYPE</code>=bfloat16<br>
+      <code>DOUBLE_QUANT</code>=True
+    </div>
+  </div>
+
+  <div class="node io" id="n-paths" style="left:860px;top:480px">
+    <div class="node-title"><span class="sn">6</span><span class="badge bp">PATHS</span> I/O Paths</div>
+    <div class="node-body">
+      <code>TRAIN_DATA</code>=data/train/train.jsonl<br>
+      <code>EVAL_DATA</code>=data/eval/eval.jsonl<br>
+      <code>OUTPUT_DIR</code>=models/lora_adapter<br>
+      <code>LOG_DIR</code>=logs
+    </div>
+  </div>
+
+  <!-- ROW 3: Consumers -->
+  <div class="node out" id="n-trainpy" style="left:80px;top:720px">
+    <div class="node-title"><span class="sstar">★</span><span class="badge bg">USES</span> train.py</div>
+    <div class="node-body">
+      Uses: MODEL, LORA, TRAINING<br>
+      Uses: IMAGE, QUANT, PATHS<br>
+      <code>import config</code> at top of file
+    </div>
+  </div>
+
+  <div class="node out" id="n-evalpy" style="left:490px;top:720px">
+    <div class="node-title"><span class="sstar">★</span><span class="badge bg">USES</span> evaluate.py</div>
+    <div class="node-body">
+      Uses: MODEL, IMAGE, QUANT<br>
+      Uses: PATHS (<code>OUTPUT_DIR</code>)<br>
+      <code>import config</code> at top of file
+    </div>
+  </div>
+
+  <div class="node config" id="n-transf" style="left:860px;top:720px">
+    <div class="node-title"><span class="sstar">★</span><span class="badge bg">USES</span> transform_data.py</div>
+    <div class="node-body">
+      Uses: IMAGE (<code>MIN/MAX pixels</code>)<br>
+      Local <code>DPI</code> constant<br>
+      Does NOT import config directly
+    </div>
+  </div>
+
+</div><!-- /stage -->
+
+<div class="legend">
+  <div class="legend-title">NODE TYPES</div>
+  <div class="lrow"><div class="dot" style="background:#58a6ff"></div> Hub (config.py)</div>
+  <div class="lrow"><div class="dot" style="background:#3fb950"></div> Config section / Consumer</div>
+  <div class="lrow"><div class="dot" style="background:#d29922"></div> LoRA / Training params</div>
+  <div class="lrow"><div class="dot" style="background:#bc8cff"></div> I/O Paths / Image config</div>
+  <div class="lrow"><div class="dot" style="background:#ff7b72"></div> Quantization</div>
+</div>
+
+<script>
+const GRID   = 40;
+const RADIUS = 14;
+const canvas = document.getElementById('cv');
+const ctx    = canvas.getContext('2d');
+let   tick   = 0;
+let   ROUTES = [];
+
+function snap(v) { return Math.round(v / GRID) * GRID; }
+
+function getEl(id) {
+  const el = document.getElementById(id);
+  const r  = el.getBoundingClientRect();
+  const sx = window.scrollX, sy = window.scrollY;
+  return {
+    left:   r.left   + sx,  top:    r.top    + sy,
+    right:  r.right  + sx,  bottom: r.bottom + sy,
+    cx:     r.left + r.width  / 2 + sx,
+    cy:     r.top  + r.height / 2 + sy,
+  };
+}
+
+function polyLen(pts) {
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+    len += Math.sqrt(dx*dx + dy*dy);
+  }
+  return len;
+}
+
+function polyAt(pts, t) {
+  const total  = polyLen(pts);
+  let   remain = total * Math.max(0, Math.min(1, t));
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+    const seg = Math.sqrt(dx*dx + dy*dy);
+    if (remain <= seg || i === pts.length - 1) {
+      const f = seg > 0 ? remain / seg : 0;
+      return { x: pts[i-1].x + dx * f, y: pts[i-1].y + dy * f };
+    }
+    remain -= seg;
+  }
+  return pts[pts.length - 1];
+}
+
+function buildPathCmds(pts, r) {
+  return () => {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const prev = pts[i-1], curr = pts[i], next = pts[i+1];
+      const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+      const l1  = Math.sqrt(dx1*dx1 + dy1*dy1) || 1;
+      const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+      const l2  = Math.sqrt(dx2*dx2 + dy2*dy2) || 1;
+      const rr  = Math.min(r, l1 / 2, l2 / 2);
+      const bx  = curr.x - (dx1 / l1) * rr;
+      const by  = curr.y - (dy1 / l1) * rr;
+      const ax  = curr.x + (dx2 / l2) * rr;
+      const ay  = curr.y + (dy2 / l2) * rr;
+      ctx.lineTo(bx, by);
+      ctx.quadraticCurveTo(curr.x, curr.y, ax, ay);
+    }
+    ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+  };
+}
+
+function arrowHead(pts, color) {
+  const n  = pts.length;
+  const dx = pts[n-1].x - pts[n-2].x;
+  const dy = pts[n-1].y - pts[n-2].y;
+  const a  = Math.atan2(dy, dx);
+  const sz = 9;
+  const px = pts[n-1].x, py = pts[n-1].y;
+  ctx.save();
+  ctx.fillStyle   = color + 'ee';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 10;
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px - sz * Math.cos(a - 0.38), py - sz * Math.sin(a - 0.38));
+  ctx.lineTo(px - sz * Math.cos(a + 0.38), py - sz * Math.sin(a + 0.38));
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawRoute(route, dashOff) {
+  const { pts, color, label } = route;
+  const draw = buildPathCmds(pts, RADIUS);
+
+  ctx.save();
+  ctx.strokeStyle = color + '2a';
+  ctx.lineWidth   = 5;
+  ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 12;
+  draw();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle    = color + 'c0';
+  ctx.lineWidth      = 1.5;
+  ctx.lineJoin       = 'round';
+  ctx.lineCap        = 'round';
+  ctx.setLineDash([7, 6]);
+  ctx.lineDashOffset = -dashOff;
+  draw();
+  ctx.stroke();
+  ctx.restore();
+
+  const tDot = ((dashOff % 26) / 26);
+  const dot  = polyAt(pts, tDot);
+  ctx.save();
+  ctx.fillStyle   = '#fff';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 16;
+  ctx.beginPath();
+  ctx.arc(dot.x, dot.y, 2.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  arrowHead(pts, color);
+
+  if (label) {
+    const mid = polyAt(pts, 0.5);
+    ctx.save();
+    ctx.font        = '600 9.5px Fira Code, monospace';
+    ctx.fillStyle   = color;
+    ctx.globalAlpha = 0.9;
+    ctx.textAlign   = 'center';
+    ctx.shadowColor = '#0a0c10';
+    ctx.shadowBlur  = 4;
+    ctx.fillText(label, mid.x, mid.y - 8);
+    ctx.restore();
+  }
+}
+
+function buildRoutes() {
+  const ids = ['n-cfg','n-model','n-lora','n-train-cfg','n-imgcfg','n-quant','n-paths','n-trainpy','n-evalpy','n-transf'];
+  const N = {};
+  for (const id of ids) N[id] = getEl(id);
+
+  const cfg      = N['n-cfg'];
+  const model    = N['n-model'];
+  const lora     = N['n-lora'];
+  const trainCfg = N['n-train-cfg'];
+  const imgcfg   = N['n-imgcfg'];
+  const quant    = N['n-quant'];
+  const paths    = N['n-paths'];
+  const trainpy  = N['n-trainpy'];
+  const evalpy   = N['n-evalpy'];
+  const transf   = N['n-transf'];
+
+  // Corridor Y values
+  const Y01  = snap((cfg.bottom   + model.top)   / 2);  // ~180 between row0 and row1
+  const Y12  = snap((model.bottom + imgcfg.top)  / 2);  // ~400 between row1 and row2
+  const Y23  = snap((imgcfg.bottom + trainpy.top) / 2); // ~630 between row2 and row3
+
+  // Side corridors to avoid routing through row1 nodes when going to row2
+  // Use left edge corridor and right edge corridor
+  const XL = snap(model.left - 60);   // left side corridor  ~20
+  const XR = snap(trainCfg.right + 60); // right side corridor ~1140
+
+  ROUTES = [
+    // === cfg → row1 sections (fan-out through Y01) ===
+
+    // cfg → model (down to Y01, left to model.cx, down)
+    {
+      pts:[
+        {x:cfg.cx,    y:cfg.bottom},
+        {x:cfg.cx,    y:Y01},
+        {x:model.cx,  y:Y01},
+        {x:model.cx,  y:model.top}
+      ],
+      color:'#58a6ff', label:'', speed:0.8
+    },
+
+    // cfg → lora (straight down — lora.cx is close to cfg.cx)
+    {
+      pts:[
+        {x:cfg.cx,  y:cfg.bottom},
+        {x:cfg.cx,  y:Y01},
+        {x:lora.cx, y:Y01},
+        {x:lora.cx, y:lora.top}
+      ],
+      color:'#58a6ff', label:'', speed:0.8
+    },
+
+    // cfg → trainCfg (down to Y01, right to trainCfg.cx, down)
+    {
+      pts:[
+        {x:cfg.cx,       y:cfg.bottom},
+        {x:cfg.cx,       y:Y01},
+        {x:trainCfg.cx,  y:Y01},
+        {x:trainCfg.cx,  y:trainCfg.top}
+      ],
+      color:'#58a6ff', label:'', speed:0.8
+    },
+
+    // === cfg → row2 sections via side corridors ===
+
+    // cfg → imgcfg: left to XL, down to Y12, right to imgcfg.cx, down
+    {
+      pts:[
+        {x:cfg.left,   y:cfg.cy},
+        {x:XL,         y:cfg.cy},
+        {x:XL,         y:Y12},
+        {x:imgcfg.cx,  y:Y12},
+        {x:imgcfg.cx,  y:imgcfg.top}
+      ],
+      color:'#58a6ff', label:'', speed:0.75
+    },
+
+    // cfg → quant: straight down through center (quant is centered like lora)
+    // Route via Y01 then continue to Y12 staying near center
+    {
+      pts:[
+        {x:cfg.cx,   y:cfg.bottom},
+        {x:cfg.cx,   y:Y01},
+        {x:quant.cx, y:Y01},
+        {x:quant.cx, y:Y12},
+        {x:quant.cx, y:quant.top}
+      ],
+      color:'#58a6ff', label:'', speed:0.75
+    },
+
+    // cfg → paths: right to XR, down to Y12, left to paths.cx, down
+    {
+      pts:[
+        {x:cfg.right,  y:cfg.cy},
+        {x:XR,         y:cfg.cy},
+        {x:XR,         y:Y12},
+        {x:paths.cx,   y:Y12},
+        {x:paths.cx,   y:paths.top}
+      ],
+      color:'#58a6ff', label:'', speed:0.75
+    },
+
+    // === row2 → row3 consumers ===
+
+    // model → trainpy (left col straight down to Y23)
+    {
+      pts:[
+        {x:model.cx,   y:model.bottom},
+        {x:model.cx,   y:Y12},
+        {x:model.cx,   y:Y23},
+        {x:trainpy.cx, y:Y23},
+        {x:trainpy.cx, y:trainpy.top}
+      ],
+      color:'#3fb950', label:'BASE_MODEL', speed:0.9
+    },
+
+    // lora → trainpy (lora.cx → Y23, left to trainpy side)
+    {
+      pts:[
+        {x:lora.cx,    y:lora.bottom},
+        {x:lora.cx,    y:Y23},
+        {x:trainpy.cx + 28, y:Y23},
+        {x:trainpy.cx + 28, y:trainpy.top}
+      ],
+      color:'#d29922', label:'LoRA config', speed:0.85
+    },
+
+    // lora → evalpy (lora straight down to evalpy.cx)
+    {
+      pts:[
+        {x:lora.cx,    y:lora.bottom},
+        {x:lora.cx,    y:Y23},
+        {x:evalpy.cx,  y:Y23},
+        {x:evalpy.cx,  y:evalpy.top}
+      ],
+      color:'#d29922', label:'', speed:0.85
+    },
+
+    // trainCfg → trainpy (right col → down → left to trainpy right side)
+    {
+      pts:[
+        {x:trainCfg.cx, y:trainCfg.bottom},
+        {x:trainCfg.cx, y:Y23},
+        {x:trainpy.cx - 28, y:Y23},
+        {x:trainpy.cx - 28, y:trainpy.top}
+      ],
+      color:'#d29922', label:'hyperparams', speed:0.9
+    },
+
+    // imgcfg → trainpy (left col down to Y23, right to trainpy)
+    {
+      pts:[
+        {x:imgcfg.cx,  y:imgcfg.bottom},
+        {x:imgcfg.cx,  y:Y23},
+        {x:trainpy.cx, y:Y23},
+        {x:trainpy.cx, y:trainpy.top}
+      ],
+      color:'#bc8cff', label:'pixel bounds', speed:0.8
+    },
+
+    // imgcfg → transf (left col → right side corridor → transf)
+    {
+      pts:[
+        {x:imgcfg.right, y:imgcfg.cy},
+        {x:XR,           y:imgcfg.cy},
+        {x:XR,           y:Y23},
+        {x:transf.cx,    y:Y23},
+        {x:transf.cx,    y:transf.top}
+      ],
+      color:'#bc8cff', label:'MIN/MAX pixels', speed:0.7
+    },
+
+    // quant → evalpy (center col straight down)
+    {
+      pts:[
+        {x:quant.cx,  y:quant.bottom},
+        {x:quant.cx,  y:Y23},
+        {x:evalpy.cx, y:Y23},
+        {x:evalpy.cx, y:evalpy.top}
+      ],
+      color:'#ff7b72', label:'4-bit quant', speed:0.85
+    },
+
+    // paths → evalpy (right → left to evalpy side)
+    {
+      pts:[
+        {x:paths.cx,   y:paths.bottom},
+        {x:paths.cx,   y:Y23},
+        {x:evalpy.cx + 28, y:Y23},
+        {x:evalpy.cx + 28, y:evalpy.top}
+      ],
+      color:'#bc8cff', label:'OUTPUT_DIR', speed:0.8
+    },
+
+    // paths → trainpy (paths.cx → left to trainpy right side)
+    {
+      pts:[
+        {x:paths.left,  y:paths.cy},
+        {x:XL,          y:paths.cy},
+        {x:XL,          y:Y23},
+        {x:trainpy.cx,  y:Y23},
+        {x:trainpy.cx,  y:trainpy.top}
+      ],
+      color:'#bc8cff', label:'data paths', speed:0.75
+    },
+  ];
+}
+
+function render() {
+  canvas.width  = Math.max(document.documentElement.scrollWidth,  1200);
+  canvas.height = Math.max(document.documentElement.scrollHeight, 1000);
+
+  tick += 0.08;
+
+  ROUTES.forEach((route, i) => {
+    const speed   = route.speed ?? 1;
+    const dashOff = (tick * speed + i * 18) % 600;
+    drawRoute(route, dashOff);
+  });
+
+  requestAnimationFrame(render);
+}
+
+window.addEventListener('load', () => {
+  buildRoutes();
+  render();
+});
+window.addEventListener('resize', buildRoutes);
+</script>
+</body>
+</html>
