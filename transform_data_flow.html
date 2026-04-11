@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>transform_data.py — Dataflow</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0a0c10;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  color: #c9d1d9;
+  overflow-x: auto;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(48,54,61,0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(48,54,61,0.4) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  text-align: center;
+  padding: 1.6rem 1rem 0.5rem;
+  position: relative;
+  z-index: 10;
+}
+header h1 {
+  font-size: 1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #58a6ff;
+}
+header h1 span { color: #3fb950; }
+header p {
+  font-size: 0.68rem;
+  color: #484f58;
+  letter-spacing: 0.12em;
+  margin-top: 0.2rem;
+}
+
+#cv {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#stage {
+  position: relative;
+  width: 1200px;
+  height: 1460px;
+  margin: 0 auto;
+  z-index: 5;
+}
+
+.node {
+  position: absolute;
+  width: 220px;
+  border: 1px solid;
+  border-radius: 4px;
+  padding: 0.8rem 1rem;
+  backdrop-filter: blur(6px);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+  z-index: 6;
+}
+.node:hover { transform: translateY(-2px); box-shadow: 0 0 24px var(--glow); }
+
+.node.env    { --glow:rgba(88,166,255,.55); background:rgba(22,44,78,.4);   border-color:rgba(88,166,255,.5);  }
+.node.config { --glow:rgba(63,185,80,.5);   background:rgba(16,46,22,.4);   border-color:rgba(63,185,80,.5);   }
+.node.func   { --glow:rgba(210,153,34,.55); background:rgba(48,36,8,.45);   border-color:rgba(210,153,34,.5);  }
+.node.io     { --glow:rgba(188,140,255,.5); background:rgba(40,22,68,.4);   border-color:rgba(188,140,255,.5); }
+.node.api    { --glow:rgba(255,123,114,.5); background:rgba(68,16,16,.4);   border-color:rgba(255,123,114,.5); }
+.node.out    { --glow:rgba(63,185,80,.55);  background:rgba(10,40,16,.45);  border-color:rgba(63,185,80,.5);   }
+
+.node-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.42rem;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+.node.env    .node-title { color:#58a6ff; }
+.node.config .node-title { color:#3fb950; }
+.node.func   .node-title { color:#d29922; }
+.node.io     .node-title { color:#bc8cff; }
+.node.api    .node-title { color:#ff7b72; }
+.node.out    .node-title { color:#3fb950; }
+
+.node-body {
+  font-size: 0.63rem;
+  color: #8b949e;
+  line-height: 1.58;
+}
+.node-body code {
+  color: #e3b341;
+  background: rgba(255,255,255,.05);
+  padding: 0.02rem 0.2rem;
+  border-radius: 2px;
+  font-size: 0.61rem;
+}
+
+.badge {
+  font-size: 0.54rem;
+  padding: 0.07rem 0.32rem;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+.bb { background:rgba(88,166,255,.16);  color:#58a6ff; border:1px solid rgba(88,166,255,.35); }
+.bg { background:rgba(63,185,80,.16);   color:#3fb950; border:1px solid rgba(63,185,80,.35);  }
+.by { background:rgba(210,153,34,.16);  color:#d29922; border:1px solid rgba(210,153,34,.35); }
+.bp { background:rgba(188,140,255,.16); color:#bc8cff; border:1px solid rgba(188,140,255,.35);}
+.br { background:rgba(255,123,114,.16); color:#ff7b72; border:1px solid rgba(255,123,114,.35);}
+
+.sn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:17px; height:17px; border-radius:50%;
+  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14);
+  font-size:0.58rem; font-weight:700; color:#5a6370; flex-shrink:0;
+}
+
+.legend {
+  position: fixed;
+  bottom: 1.2rem; right: 1.4rem;
+  background: rgba(13,17,23,.9);
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.6rem;
+  color: #484f58;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+.legend-title { color:#6e7681; font-weight:700; margin-bottom:0.3rem; letter-spacing:0.1em; }
+.lrow { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.18rem; }
+.dot { width:7px; height:7px; border-radius:50%; }
+</style>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+
+<header>
+  <h1>transform_data<span>.py</span> — Dataflow</h1>
+  <p>GPT Labels → Qwen Training Format</p>
+</header>
+
+<div id="stage">
+
+  <!-- STEP 1: INPUT -->
+  <div class="node io" id="n-input" style="left:490px;top:40px">
+    <div class="node-title"><span class="sn">1</span><span class="badge bp">I/O</span> gpt_labels.jsonl</div>
+    <div class="node-body">
+      Input: <code>data/gpt_labels.jsonl</code><br>
+      Each line: JSON with <code>image_path</code><br>
+      Fields: <code>gpt_response</code>, <code>model</code>, <code>usage</code>
+    </div>
+  </div>
+
+  <!-- STEP 2: READ -->
+  <div class="node func" id="n-read" style="left:490px;top:220px">
+    <div class="node-title"><span class="sn">2</span><span class="badge by">READ</span> Read JSONL</div>
+    <div class="node-body">
+      Open file, iterate lines<br>
+      <code>json.loads(line)</code> per entry<br>
+      Build raw sample list
+    </div>
+  </div>
+
+  <!-- STEP 3a: SIMPLIFY -->
+  <div class="node func" id="n-simp" style="left:80px;top:420px">
+    <div class="node-title"><span class="sn">3</span><span class="badge by">FN</span> simplify_gpt_output()</div>
+    <div class="node-body">
+      <code>json.loads(raw_response)</code><br>
+      Keep: <code>transcription</code>, <code>confidence</code><br>
+      Returns clean JSON str<br>
+      Returns <code>None</code> on parse error
+    </div>
+  </div>
+
+  <!-- STEP 3b: IMAGE TO BASE64 -->
+  <div class="node func" id="n-img" style="left:840px;top:420px">
+    <div class="node-title"><span class="sn">3</span><span class="badge by">FN</span> image_to_base64()</div>
+    <div class="node-body">
+      <code>PIL.Image.open(path)</code><br>
+      Check pixel bounds:<br>
+      MIN=<code>3,136</code> MAX=<code>100,352</code><br>
+      Resize with LANCZOS if needed<br>
+      PNG → BytesIO → base64
+    </div>
+  </div>
+
+  <!-- STEP 4: BUILD/TRANSFORM -->
+  <div class="node func" id="n-build" style="left:490px;top:660px">
+    <div class="node-title"><span class="sn">4</span><span class="badge by">FN</span> transform_sample()</div>
+    <div class="node-body">
+      Calls <code>simplify_gpt_output()</code><br>
+      Calls <code>image_to_base64()</code><br>
+      Assembles Qwen messages format<br>
+      Returns <code>None</code> if either step fails
+    </div>
+  </div>
+
+  <!-- STEP 4-side: SKIP -->
+  <div class="node api" id="n-skip" style="left:840px;top:660px">
+    <div class="node-title"><span class="sn">4</span><span class="badge br">SKIP</span> Invalid → None</div>
+    <div class="node-body">
+      JSON parse errors<br>
+      Image load errors<br>
+      File not found<br>
+      Silently skipped
+    </div>
+  </div>
+
+  <!-- STEP 5: COLLECT -->
+  <div class="node func" id="n-coll" style="left:490px;top:880px">
+    <div class="node-title"><span class="sn">5</span><span class="badge by">COLLECT</span> Valid Samples</div>
+    <div class="node-body">
+      Filters out <code>None</code> returns<br>
+      Appends to <code>samples</code> list<br>
+      Prints count of successful transforms
+    </div>
+  </div>
+
+  <!-- STEP 6: SHUFFLE -->
+  <div class="node func" id="n-shuf" style="left:490px;top:1040px">
+    <div class="node-title"><span class="sn">6</span><span class="badge by">SHUFFLE</span> random.shuffle</div>
+    <div class="node-body">
+      <code>random.seed(42)</code> for reproducibility<br>
+      In-place shuffle of <code>samples</code> list<br>
+      Ensures random train/eval split
+    </div>
+  </div>
+
+  <!-- STEP 7: SPLIT -->
+  <div class="node func" id="n-split" style="left:490px;top:1200px">
+    <div class="node-title"><span class="sn">7</span><span class="badge by">SPLIT</span> 80 / 20</div>
+    <div class="node-body">
+      <code>split = int(len(samples) * 0.8)</code><br>
+      <code>train_samples = samples[:split]</code><br>
+      <code>eval_samples  = samples[split:]</code>
+    </div>
+  </div>
+
+  <!-- STEP 8a: TRAIN OUTPUT -->
+  <div class="node out" id="n-trainout" style="left:120px;top:1360px">
+    <div class="node-title"><span class="sn">8</span><span class="badge bg">OUT</span> train/train.jsonl</div>
+    <div class="node-body">
+      <code>data/train/train.jsonl</code><br>
+      ~80% of samples<br>
+      Qwen messages format<br>
+      UTF-8 JSONL, one sample per line
+    </div>
+  </div>
+
+  <!-- STEP 8b: EVAL OUTPUT -->
+  <div class="node out" id="n-evalout" style="left:820px;top:1360px">
+    <div class="node-title"><span class="sn">8</span><span class="badge bg">OUT</span> eval/eval.jsonl</div>
+    <div class="node-body">
+      <code>data/eval/eval.jsonl</code><br>
+      ~20% of samples<br>
+      Same format as train<br>
+      Used by <code>evaluate.py</code>
+    </div>
+  </div>
+
+</div><!-- /stage -->
+
+<div class="legend">
+  <div class="legend-title">NODE TYPES</div>
+  <div class="lrow"><div class="dot" style="background:#bc8cff"></div> I/O (disk)</div>
+  <div class="lrow"><div class="dot" style="background:#d29922"></div> Function / Logic</div>
+  <div class="lrow"><div class="dot" style="background:#ff7b72"></div> Error / Skip</div>
+  <div class="lrow"><div class="dot" style="background:#3fb950"></div> Output</div>
+</div>
+
+<script>
+const GRID   = 40;
+const RADIUS = 14;
+const canvas = document.getElementById('cv');
+const ctx    = canvas.getContext('2d');
+let   tick   = 0;
+let   ROUTES = [];
+
+function snap(v) { return Math.round(v / GRID) * GRID; }
+
+function getEl(id) {
+  const el = document.getElementById(id);
+  const r  = el.getBoundingClientRect();
+  const sx = window.scrollX, sy = window.scrollY;
+  return {
+    left:   r.left   + sx,  top:    r.top    + sy,
+    right:  r.right  + sx,  bottom: r.bottom + sy,
+    cx:     r.left + r.width  / 2 + sx,
+    cy:     r.top  + r.height / 2 + sy,
+  };
+}
+
+function polyLen(pts) {
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+    len += Math.sqrt(dx*dx + dy*dy);
+  }
+  return len;
+}
+
+function polyAt(pts, t) {
+  const total  = polyLen(pts);
+  let   remain = total * Math.max(0, Math.min(1, t));
+  for (let i = 1; i < pts.length; i++) {
+    const dx = pts[i].x - pts[i-1].x, dy = pts[i].y - pts[i-1].y;
+    const seg = Math.sqrt(dx*dx + dy*dy);
+    if (remain <= seg || i === pts.length - 1) {
+      const f = seg > 0 ? remain / seg : 0;
+      return { x: pts[i-1].x + dx * f, y: pts[i-1].y + dy * f };
+    }
+    remain -= seg;
+  }
+  return pts[pts.length - 1];
+}
+
+function buildPathCmds(pts, r) {
+  return () => {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const prev = pts[i-1], curr = pts[i], next = pts[i+1];
+      const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+      const l1  = Math.sqrt(dx1*dx1 + dy1*dy1) || 1;
+      const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+      const l2  = Math.sqrt(dx2*dx2 + dy2*dy2) || 1;
+      const rr  = Math.min(r, l1 / 2, l2 / 2);
+      const bx  = curr.x - (dx1 / l1) * rr;
+      const by  = curr.y - (dy1 / l1) * rr;
+      const ax  = curr.x + (dx2 / l2) * rr;
+      const ay  = curr.y + (dy2 / l2) * rr;
+      ctx.lineTo(bx, by);
+      ctx.quadraticCurveTo(curr.x, curr.y, ax, ay);
+    }
+    ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+  };
+}
+
+function arrowHead(pts, color) {
+  const n  = pts.length;
+  const dx = pts[n-1].x - pts[n-2].x;
+  const dy = pts[n-1].y - pts[n-2].y;
+  const a  = Math.atan2(dy, dx);
+  const sz = 9;
+  const px = pts[n-1].x, py = pts[n-1].y;
+  ctx.save();
+  ctx.fillStyle   = color + 'ee';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 10;
+  ctx.beginPath();
+  ctx.moveTo(px, py);
+  ctx.lineTo(px - sz * Math.cos(a - 0.38), py - sz * Math.sin(a - 0.38));
+  ctx.lineTo(px - sz * Math.cos(a + 0.38), py - sz * Math.sin(a + 0.38));
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawRoute(route, dashOff) {
+  const { pts, color, label } = route;
+  const draw = buildPathCmds(pts, RADIUS);
+
+  ctx.save();
+  ctx.strokeStyle = color + '2a';
+  ctx.lineWidth   = 5;
+  ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 12;
+  draw();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle    = color + 'c0';
+  ctx.lineWidth      = 1.5;
+  ctx.lineJoin       = 'round';
+  ctx.lineCap        = 'round';
+  ctx.setLineDash([7, 6]);
+  ctx.lineDashOffset = -dashOff;
+  draw();
+  ctx.stroke();
+  ctx.restore();
+
+  const tDot = ((dashOff % 26) / 26);
+  const dot  = polyAt(pts, tDot);
+  ctx.save();
+  ctx.fillStyle   = '#fff';
+  ctx.shadowColor = color;
+  ctx.shadowBlur  = 16;
+  ctx.beginPath();
+  ctx.arc(dot.x, dot.y, 2.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  arrowHead(pts, color);
+
+  if (label) {
+    const mid = polyAt(pts, 0.5);
+    ctx.save();
+    ctx.font        = '600 9.5px Fira Code, monospace';
+    ctx.fillStyle   = color;
+    ctx.globalAlpha = 0.9;
+    ctx.textAlign   = 'center';
+    ctx.shadowColor = '#0a0c10';
+    ctx.shadowBlur  = 4;
+    ctx.fillText(label, mid.x, mid.y - 8);
+    ctx.restore();
+  }
+}
+
+function buildRoutes() {
+  const ids = ['n-input','n-read','n-simp','n-img','n-build','n-skip','n-coll','n-shuf','n-split','n-trainout','n-evalout'];
+  const N = {};
+  for (const id of ids) N[id] = getEl(id);
+
+  const inp      = N['n-input'];
+  const read     = N['n-read'];
+  const simp     = N['n-simp'];
+  const img      = N['n-img'];
+  const build    = N['n-build'];
+  const skip     = N['n-skip'];
+  const coll     = N['n-coll'];
+  const shuf     = N['n-shuf'];
+  const split    = N['n-split'];
+  const trainout = N['n-trainout'];
+  const evalout  = N['n-evalout'];
+
+  // Horizontal corridor Y values between each row pair
+  const Y_rd  = snap((inp.bottom   + read.top)  / 2);   // ~170  input→read
+  const Y_br  = snap((read.bottom  + simp.top)  / 2);   // ~360  read→step3 row
+  const Y_bm  = snap((simp.bottom  + build.top) / 2);   // ~580  step3→build
+  const Y_bc  = snap((build.bottom + coll.top)  / 2);   // ~800  build→collect
+  const Y_cs  = snap((coll.bottom  + shuf.top)  / 2);   // ~980  collect→shuffle
+  const Y_ss  = snap((shuf.bottom  + split.top) / 2);   // ~1140 shuffle→split
+  const Y_out = snap((split.bottom + trainout.top) / 2);// ~1300 split→outputs
+
+  ROUTES = [
+    // 1: input → read (straight down)
+    {
+      pts:[{x:inp.cx,y:inp.bottom},{x:inp.cx,y:read.top}],
+      color:'#bc8cff', label:'raw JSONL', speed:1.0
+    },
+
+    // 2a: read → simp (down to Y_br, left to simp.cx, down)
+    {
+      pts:[
+        {x:read.cx, y:read.bottom},
+        {x:read.cx, y:Y_br},
+        {x:simp.cx, y:Y_br},
+        {x:simp.cx, y:simp.top}
+      ],
+      color:'#58a6ff', label:'gpt_response', speed:0.9
+    },
+
+    // 2b: read → img (down to Y_br, right to img.cx, down)
+    {
+      pts:[
+        {x:read.cx, y:read.bottom},
+        {x:read.cx, y:Y_br},
+        {x:img.cx,  y:Y_br},
+        {x:img.cx,  y:img.top}
+      ],
+      color:'#58a6ff', label:'image_path', speed:0.9
+    },
+
+    // 3a: simp → build (down to Y_bm, right to build.cx-28, down)
+    {
+      pts:[
+        {x:simp.cx,        y:simp.bottom},
+        {x:simp.cx,        y:Y_bm},
+        {x:build.cx - 28,  y:Y_bm},
+        {x:build.cx - 28,  y:build.top}
+      ],
+      color:'#d29922', label:'simplified JSON', speed:0.85
+    },
+
+    // 3b: img → build (down to Y_bm, left to build.cx+28, down)
+    {
+      pts:[
+        {x:img.cx,        y:img.bottom},
+        {x:img.cx,        y:Y_bm},
+        {x:build.cx + 28, y:Y_bm},
+        {x:build.cx + 28, y:build.top}
+      ],
+      color:'#d29922', label:'base64 image', speed:0.85
+    },
+
+    // 4: build → skip (horizontal, same row)
+    {
+      pts:[
+        {x:build.right, y:build.cy},
+        {x:skip.left,   y:build.cy}
+      ],
+      color:'#e3b341', label:'→ None', speed:0.7
+    },
+
+    // 5: build → coll (straight down)
+    {
+      pts:[
+        {x:build.cx, y:build.bottom},
+        {x:build.cx, y:Y_bc},
+        {x:coll.cx,  y:Y_bc},
+        {x:coll.cx,  y:coll.top}
+      ],
+      color:'#3fb950', label:'valid sample', speed:1.0
+    },
+
+    // 6: skip → coll right edge (skip.bottom → down to Y_bc → left to coll.right → into coll.cy)
+    {
+      pts:[
+        {x:skip.cx,    y:skip.bottom},
+        {x:skip.cx,    y:Y_bc},
+        {x:coll.right, y:Y_bc},
+        {x:coll.right, y:coll.cy}
+      ],
+      color:'#e3b341', label:'skip', speed:0.65
+    },
+
+    // 7: coll → shuf (straight down)
+    {
+      pts:[
+        {x:coll.cx, y:coll.bottom},
+        {x:coll.cx, y:shuf.top}
+      ],
+      color:'#3fb950', label:'samples[]', speed:1.0
+    },
+
+    // 8: shuf → split (straight down)
+    {
+      pts:[
+        {x:shuf.cx, y:shuf.bottom},
+        {x:shuf.cx, y:split.top}
+      ],
+      color:'#3fb950', label:'shuffled', speed:1.0
+    },
+
+    // 9a: split → trainout (down to Y_out, left to trainout.cx, down)
+    {
+      pts:[
+        {x:split.cx,    y:split.bottom},
+        {x:split.cx,    y:Y_out},
+        {x:trainout.cx, y:Y_out},
+        {x:trainout.cx, y:trainout.top}
+      ],
+      color:'#3fb950', label:'80%', speed:0.9
+    },
+
+    // 9b: split → evalout (down to Y_out, right to evalout.cx, down)
+    {
+      pts:[
+        {x:split.cx,   y:split.bottom},
+        {x:split.cx,   y:Y_out},
+        {x:evalout.cx, y:Y_out},
+        {x:evalout.cx, y:evalout.top}
+      ],
+      color:'#3fb950', label:'20%', speed:0.9
+    },
+  ];
+}
+
+function render() {
+  canvas.width  = Math.max(document.documentElement.scrollWidth,  1200);
+  canvas.height = Math.max(document.documentElement.scrollHeight, 1500);
+
+  tick += 0.08;
+
+  ROUTES.forEach((route, i) => {
+    const speed   = route.speed ?? 1;
+    const dashOff = (tick * speed + i * 18) % 600;
+    drawRoute(route, dashOff);
+  });
+
+  requestAnimationFrame(render);
+}
+
+window.addEventListener('load', () => {
+  buildRoutes();
+  render();
+});
+window.addEventListener('resize', buildRoutes);
+</script>
+</body>
+</html>
