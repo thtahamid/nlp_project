@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8.2 Test the vLLM Server</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0c10;font-family:'Fira Code','Cascadia Code',monospace;color:#c9d1d9;overflow-x:auto;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(48,54,61,0.4) 1px,transparent 1px),linear-gradient(90deg,rgba(48,54,61,0.4) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+header{text-align:center;padding:1.5rem 1rem 0.4rem;position:relative;z-index:10;}
+header h1{font-size:1rem;letter-spacing:.2em;text-transform:uppercase;color:#58a6ff;}
+header h1 span{color:#3fb950;}
+header p{font-size:.68rem;color:#484f58;letter-spacing:.12em;margin-top:.2rem;}
+#cv{position:absolute;top:0;left:0;pointer-events:none;z-index:2;}
+#stage{position:relative;width:1200px;height:1380px;margin:0 auto;z-index:5;}
+.node{position:absolute;width:220px;border:1px solid;border-radius:4px;padding:.8rem 1rem;backdrop-filter:blur(6px);transition:transform .2s,box-shadow .2s;cursor:default;z-index:6;}
+.node:hover{transform:translateY(-2px);box-shadow:0 0 24px var(--glow);}
+.node.env   {--glow:rgba(88,166,255,.55);background:rgba(22,44,78,.4);border-color:rgba(88,166,255,.5);}
+.node.config{--glow:rgba(63,185,80,.5);background:rgba(16,46,22,.4);border-color:rgba(63,185,80,.5);}
+.node.func  {--glow:rgba(210,153,34,.55);background:rgba(48,36,8,.45);border-color:rgba(210,153,34,.5);}
+.node.io    {--glow:rgba(188,140,255,.5);background:rgba(40,22,68,.4);border-color:rgba(188,140,255,.5);}
+.node.api   {--glow:rgba(255,123,114,.5);background:rgba(68,16,16,.4);border-color:rgba(255,123,114,.5);}
+.node.out   {--glow:rgba(63,185,80,.55);background:rgba(10,40,16,.45);border-color:rgba(63,185,80,.5);}
+.node-title{font-size:.72rem;font-weight:700;letter-spacing:.06em;margin-bottom:.42rem;display:flex;align-items:center;gap:.38rem;}
+.node.env    .node-title{color:#58a6ff;}
+.node.config .node-title{color:#3fb950;}
+.node.func   .node-title{color:#d29922;}
+.node.io     .node-title{color:#bc8cff;}
+.node.api    .node-title{color:#ff7b72;}
+.node.out    .node-title{color:#3fb950;}
+.node-body{font-size:.63rem;color:#8b949e;line-height:1.58;}
+.node-body code{color:#e3b341;background:rgba(255,255,255,.05);padding:.02rem .2rem;border-radius:2px;font-size:.61rem;}
+.badge{font-size:.54rem;padding:.07rem .32rem;border-radius:2px;letter-spacing:.05em;font-weight:700;}
+.bb{background:rgba(88,166,255,.16);color:#58a6ff;border:1px solid rgba(88,166,255,.35);}
+.bg{background:rgba(63,185,80,.16);color:#3fb950;border:1px solid rgba(63,185,80,.35);}
+.by{background:rgba(210,153,34,.16);color:#d29922;border:1px solid rgba(210,153,34,.35);}
+.bp{background:rgba(188,140,255,.16);color:#bc8cff;border:1px solid rgba(188,140,255,.35);}
+.br{background:rgba(255,123,114,.16);color:#ff7b72;border:1px solid rgba(255,123,114,.35);}
+.sn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);font-size:.58rem;font-weight:700;color:#5a6370;flex-shrink:0;}
+/* code panels */
+.panel{position:absolute;border:1px solid rgba(88,166,255,.22);border-radius:4px;background:rgba(8,12,20,.75);backdrop-filter:blur(6px);padding:.9rem 1.1rem;z-index:6;font-size:.6rem;line-height:1.75;color:#8b949e;}
+.panel .ptitle{font-size:.64rem;font-weight:700;letter-spacing:.09em;margin-bottom:.55rem;}
+.panel code{color:#e3b341;font-size:.59rem;}
+.panel .method{color:#58a6ff;}
+.panel .url{color:#bc8cff;}
+.panel .key{color:#3fb950;}
+.panel .val{color:#e3b341;}
+.panel .resp{color:#3fb950;}
+.panel .comment{color:#484f58;}
+/* legend */
+.legend{position:fixed;bottom:1.2rem;right:1.4rem;background:rgba(13,17,23,.9);border:1px solid #30363d;border-radius:4px;padding:.6rem .9rem;font-size:.6rem;color:#484f58;z-index:20;backdrop-filter:blur(8px);}
+.legend-title{color:#6e7681;font-weight:700;margin-bottom:.3rem;letter-spacing:.1em;}
+.lrow{display:flex;align-items:center;gap:.4rem;margin-bottom:.18rem;}
+.dot{width:7px;height:7px;border-radius:50%;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<header>
+  <h1>8.2 — Test the <span>vLLM</span> Server</h1>
+  <p>curl Requests · OpenAI API · 3 Test Endpoints</p>
+</header>
+
+<div id="stage">
+
+  <!-- Client terminal -->
+  <div class="node env" id="n-client" style="left:490px;top:40px">
+    <div class="node-title"><span class="sn">1</span><span class="badge bb">CLI</span> Client Terminal</div>
+    <div class="node-body">
+      Second SSH session (same instance)<br>
+      Or remote machine with port 8000 open<br>
+      Base URL: <code>http://localhost:8000</code>
+    </div>
+  </div>
+
+  <!-- 3 request types -->
+  <div class="node func" id="n-health" style="left:80px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge by">GET</span> Health Check</div>
+    <div class="node-body">
+      <code>GET /health</code><br>
+      Verifies server is alive<br>
+      Returns HTTP 200 if ready<br>
+      Run first — if this fails, nothing works
+    </div>
+  </div>
+
+  <div class="node io" id="n-models" style="left:490px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge bp">GET</span> List Models</div>
+    <div class="node-body">
+      <code>GET /v1/models</code><br>
+      Lists registered model aliases<br>
+      Should include <code>arabic-ocr-v1</code><br>
+      Confirms LoRA was loaded correctly
+    </div>
+  </div>
+
+  <div class="node api" id="n-infer" style="left:840px;top:240px">
+    <div class="node-title"><span class="sn">2</span><span class="badge br">POST</span> Chat Completions</div>
+    <div class="node-body">
+      <code>POST /v1/chat/completions</code><br>
+      Sends base64 image + system prompt<br>
+      <code>"model": "arabic-ocr-v1"</code> selects LoRA<br>
+      <code>max_tokens</code>: 512
+    </div>
+  </div>
+
+  <!-- vLLM Server -->
+  <div class="node config" id="n-server" style="left:490px;top:480px">
+    <div class="node-title"><span class="sn">3</span><span class="badge bg">SRV</span> vLLM API Server</div>
+    <div class="node-body">
+      Receives HTTP request on port 8000<br>
+      Routes to matching handler<br>
+      Selects LoRA adapter from <code>"model"</code> field<br>
+      Queues request for GPU execution
+    </div>
+  </div>
+
+  <!-- Request structure breakdown -->
+  <div class="node func" id="n-req" style="left:840px;top:480px">
+    <div class="node-title"><span class="sn">3</span><span class="badge by">REQ</span> Request Structure</div>
+    <div class="node-body">
+      <code>Content-Type: application/json</code><br>
+      Body: system + user messages<br>
+      User content: <code>image_url</code> type<br>
+      URL: <code>data:image/png;base64,...</code>
+    </div>
+  </div>
+
+  <!-- GPU Inference -->
+  <div class="node api" id="n-gpu" style="left:490px;top:720px">
+    <div class="node-title"><span class="sn">4</span><span class="badge br">GPU</span> Inference Execution</div>
+    <div class="node-body">
+      Vision encoder processes image tokens<br>
+      LoRA weights applied to attention layers<br>
+      Generates up to 512 tokens<br>
+      PagedAttention manages KV-cache
+    </div>
+  </div>
+
+  <!-- Responses -->
+  <div class="node out" id="n-r-health" style="left:80px;top:960px">
+    <div class="node-title"><span class="sn">5</span><span class="badge bg">RSP</span> /health Response</div>
+    <div class="node-body">
+      HTTP 200 OK<br>
+      Body: <code>&#123;&#125;</code> (empty JSON)<br>
+      <strong>Expected:</strong> immediate, no delay<br>
+      Fail: server not started or crashed
+    </div>
+  </div>
+
+  <div class="node out" id="n-r-models" style="left:490px;top:960px">
+    <div class="node-title"><span class="sn">5</span><span class="badge bg">RSP</span> /v1/models Response</div>
+    <div class="node-body">
+      <code>&#123;"data":[&#123;"id":"arabic-ocr-v1",...&#125;]&#125;</code><br>
+      Check: <code>arabic-ocr-v1</code> is present<br>
+      Fail: LoRA not loaded → recheck flags<br>
+      Also shows base model listing
+    </div>
+  </div>
+
+  <div class="node out" id="n-r-infer" style="left:840px;top:960px">
+    <div class="node-title"><span class="sn">5</span><span class="badge bg">RSP</span> Inference Response</div>
+    <div class="node-body">
+      <code>choices[0].message.content</code><br>
+      Expected: <code>&#123;"transcription":"...","confidence":"high"&#125;</code><br>
+      Check: valid JSON with Arabic text<br>
+      <code>usage.completion_tokens</code> visible
+    </div>
+  </div>
+
+  <!-- Command panels -->
+  <div class="panel" style="left:60px;top:1120px;width:320px">
+    <div class="ptitle" style="color:#d29922">HEALTH CHECK</div>
+    <span class="method">curl</span> <span class="url">http://localhost:8000/health</span><br><br>
+    <span class="comment"># Expected response:</span><br>
+    <span class="resp">HTTP 200 OK</span>
+  </div>
+
+  <div class="panel" style="left:420px;top:1120px;width:360px">
+    <div class="ptitle" style="color:#bc8cff">LIST MODELS</div>
+    <span class="method">curl</span> <span class="url">http://localhost:8000/v1/models</span><br><br>
+    <span class="comment"># Look for:</span><br>
+    <span class="key">"id"</span>: <span class="val">"arabic-ocr-v1"</span>
+  </div>
+
+  <div class="panel" style="left:60px;top:1240px;width:1080px">
+    <div class="ptitle" style="color:#ff7b72">INFERENCE REQUEST</div>
+    <span class="method">curl</span> <span class="url">http://localhost:8000/v1/chat/completions</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">-H</span> <span class="val">"Content-Type: application/json"</span> \<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">-d</span> <span class="val">'&#123;</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"model"</span>: <span class="val">"arabic-ocr-v1"</span>,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"messages"</span>: [<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#123;<span class="key">"role"</span>:<span class="val">"system"</span>, <span class="key">"content"</span>:<span class="val">"Read the Arabic handwriting and return JSON."</span>&#125;,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&#123;<span class="key">"role"</span>:<span class="val">"user"</span>, <span class="key">"content"</span>: [&#123;<span class="key">"type"</span>:<span class="val">"image_url"</span>, <span class="key">"image_url"</span>:&#123;<span class="key">"url"</span>:<span class="val">"data:image/png;base64,YOUR_BASE64"</span>&#125;&#125;]&#125;<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;],<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"max_tokens"</span>: <span class="val">512</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="val">&#125;'</span>
+  </div>
+
+</div>
+
+<div class="legend">
+  <div class="legend-title">NODE TYPES</div>
+  <div class="lrow"><div class="dot" style="background:#58a6ff"></div> Client / Entry</div>
+  <div class="lrow"><div class="dot" style="background:#d29922"></div> GET Request</div>
+  <div class="lrow"><div class="dot" style="background:#bc8cff"></div> GET w/ data</div>
+  <div class="lrow"><div class="dot" style="background:#ff7b72"></div> POST / GPU</div>
+  <div class="lrow"><div class="dot" style="background:#3fb950"></div> Server / Response</div>
+</div>
+
+<script>
+const GRID=40,RADIUS=14;
+const canvas=document.getElementById('cv'),ctx=canvas.getContext('2d');
+let tick=0,ROUTES=[];
+
+function snap(v){return Math.round(v/GRID)*GRID;}
+function getEl(id){const el=document.getElementById(id),r=el.getBoundingClientRect(),sx=window.scrollX,sy=window.scrollY;return{left:r.left+sx,top:r.top+sy,right:r.right+sx,bottom:r.bottom+sy,cx:r.left+r.width/2+sx,cy:r.top+r.height/2+sy};}
+function polyLen(pts){let l=0;for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y;l+=Math.sqrt(dx*dx+dy*dy);}return l;}
+function polyAt(pts,t){const tot=polyLen(pts);let rem=tot*Math.max(0,Math.min(1,t));for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y,seg=Math.sqrt(dx*dx+dy*dy);if(rem<=seg||i===pts.length-1){const f=seg>0?rem/seg:0;return{x:pts[i-1].x+dx*f,y:pts[i-1].y+dy*f};}rem-=seg;}return pts[pts.length-1];}
+function buildPath(pts,r){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length-1;i++){const p=pts[i-1],c=pts[i],n=pts[i+1],dx1=c.x-p.x,dy1=c.y-p.y,l1=Math.sqrt(dx1*dx1+dy1*dy1)||1,dx2=n.x-c.x,dy2=n.y-c.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1,rr=Math.min(r,l1/2,l2/2),bx=c.x-(dx1/l1)*rr,by=c.y-(dy1/l1)*rr,ax=c.x+(dx2/l2)*rr,ay=c.y+(dy2/l2)*rr;ctx.lineTo(bx,by);ctx.quadraticCurveTo(c.x,c.y,ax,ay);}ctx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y);}
+function arrowHead(pts,color){const n=pts.length,dx=pts[n-1].x-pts[n-2].x,dy=pts[n-1].y-pts[n-2].y,a=Math.atan2(dy,dx),sz=9,px=pts[n-1].x,py=pts[n-1].y;ctx.save();ctx.fillStyle=color+'ee';ctx.shadowColor=color;ctx.shadowBlur=10;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-sz*Math.cos(a-0.38),py-sz*Math.sin(a-0.38));ctx.lineTo(px-sz*Math.cos(a+0.38),py-sz*Math.sin(a+0.38));ctx.closePath();ctx.fill();ctx.restore();}
+function drawRoute(route,dashOff){const{pts,color,label}=route;ctx.save();ctx.strokeStyle=color+'2a';ctx.lineWidth=5;ctx.lineJoin='round';ctx.lineCap='round';ctx.shadowColor=color;ctx.shadowBlur=12;buildPath(pts,RADIUS);ctx.stroke();ctx.restore();ctx.save();ctx.strokeStyle=color+'c0';ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.setLineDash([7,6]);ctx.lineDashOffset=-dashOff;buildPath(pts,RADIUS);ctx.stroke();ctx.restore();const tDot=((dashOff%26)/26),dot=polyAt(pts,tDot);ctx.save();ctx.fillStyle='#fff';ctx.shadowColor=color;ctx.shadowBlur=16;ctx.beginPath();ctx.arc(dot.x,dot.y,2.8,0,Math.PI*2);ctx.fill();ctx.restore();arrowHead(pts,color);if(label){const mid=polyAt(pts,0.5);ctx.save();ctx.font='600 9.5px Fira Code,monospace';ctx.fillStyle=color;ctx.globalAlpha=0.9;ctx.textAlign='center';ctx.shadowColor='#0a0c10';ctx.shadowBlur=4;ctx.fillText(label,mid.x,mid.y-8);ctx.restore();}}
+
+function buildRoutes(){
+  const client=getEl('n-client'),health=getEl('n-health'),models=getEl('n-models'),
+        infer=getEl('n-infer'),server=getEl('n-server'),req=getEl('n-req'),
+        gpu=getEl('n-gpu'),rh=getEl('n-r-health'),rm=getEl('n-r-models'),ri=getEl('n-r-infer');
+
+  const Y01=snap((client.bottom+health.top)/2);
+  const Y12=snap((health.bottom+server.top)/2);
+  const Y23=snap((server.bottom+gpu.top)/2);
+  const Y34=snap((gpu.bottom+rh.top)/2);
+  const XL=snap(health.left-60);   // left corridor ~20
+  const XR=snap(infer.right+60);   // right corridor ~1120
+
+  ROUTES=[
+    // client fans to 3 request types
+    {pts:[{x:client.cx,y:client.bottom},{x:client.cx,y:Y01},{x:health.cx,y:Y01},{x:health.cx,y:health.top}],color:'#d29922',label:'GET',speed:0.95},
+    {pts:[{x:client.cx,y:client.bottom},{x:client.cx,y:Y01},{x:models.cx,y:Y01},{x:models.cx,y:models.top}],color:'#bc8cff',label:'GET',speed:0.9},
+    {pts:[{x:client.cx,y:client.bottom},{x:client.cx,y:Y01},{x:infer.cx,y:Y01},{x:infer.cx,y:infer.top}],color:'#ff7b72',label:'POST',speed:0.85},
+
+    // health → server (direct, simple path left side)
+    {pts:[{x:health.cx,y:health.bottom},{x:health.cx,y:Y12},{x:server.cx-28,y:Y12},{x:server.cx-28,y:server.top}],color:'#d29922',label:'/health',speed:0.9},
+
+    // models → server
+    {pts:[{x:models.cx,y:models.bottom},{x:models.cx,y:Y12},{x:server.cx,y:Y12},{x:server.cx,y:server.top}],color:'#bc8cff',label:'/v1/models',speed:0.85},
+
+    // infer → server + req breakdown
+    {pts:[{x:infer.cx,y:infer.bottom},{x:infer.cx,y:Y12},{x:server.cx+28,y:Y12},{x:server.cx+28,y:server.top}],color:'#ff7b72',label:'/chat/completions',speed:0.85},
+    {pts:[{x:infer.cx,y:infer.bottom},{x:infer.cx,y:Y12},{x:req.cx,y:Y12},{x:req.cx,y:req.top}],color:'#ff7b72',label:'payload',speed:0.8},
+
+    // server → gpu (inference requests to GPU)
+    {pts:[{x:server.cx,y:server.bottom},{x:server.cx,y:Y23},{x:gpu.cx,y:Y23},{x:gpu.cx,y:gpu.top}],color:'#3fb950',label:'queued request',speed:0.9},
+
+    // req → gpu (structure decoded)
+    {pts:[{x:req.left,y:req.cy},{x:gpu.right,y:req.cy}],color:'#d29922',label:'decoded payload',speed:0.8},
+
+    // responses: gpu → 3 response nodes via right corridor (for health/models: direct from server)
+    // health response (simple — from server left side, no GPU needed)
+    {pts:[{x:health.left,y:health.cy},{x:XL,y:health.cy},{x:XL,y:rh.cy},{x:rh.left,y:rh.cy}],color:'#3fb950',label:'200 OK',speed:0.9},
+
+    // models response (from server center)
+    {pts:[{x:server.left,y:server.cy},{x:XL,y:server.cy},{x:XL,y:rm.cy},{x:rm.left,y:rm.cy}],color:'#3fb950',label:'model list',speed:0.85},
+
+    // inference response from gpu → ri (right side)
+    {pts:[{x:gpu.cx,y:gpu.bottom},{x:gpu.cx,y:Y34},{x:ri.cx,y:Y34},{x:ri.cx,y:ri.top}],color:'#3fb950',label:'completion',speed:0.9},
+  ];
+}
+
+function render(){
+  canvas.width=Math.max(document.documentElement.scrollWidth,1200);
+  canvas.height=Math.max(document.documentElement.scrollHeight,600);
+  tick+=0.08;
+  ROUTES.forEach((route,i)=>{const speed=route.speed??1,dashOff=(tick*speed+i*18)%600;drawRoute(route,dashOff);});
+  requestAnimationFrame(render);
+}
+window.addEventListener('load',()=>{buildRoutes();render();});
+window.addEventListener('resize',buildRoutes);
+</script>
+</body>
+</html>
