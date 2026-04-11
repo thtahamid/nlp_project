@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>evaluate.py — Model Evaluation Pipeline</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0c10;font-family:'Fira Code','Cascadia Code',monospace;color:#c9d1d9;overflow-x:auto;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(48,54,61,0.4) 1px,transparent 1px),linear-gradient(90deg,rgba(48,54,61,0.4) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+header{text-align:center;padding:1.5rem 1rem 0.4rem;position:relative;z-index:10;}
+header h1{font-size:1rem;letter-spacing:.2em;text-transform:uppercase;color:#58a6ff;}
+header h1 span{color:#3fb950;}
+header p{font-size:.68rem;color:#484f58;letter-spacing:.12em;margin-top:.2rem;}
+#cv{position:absolute;top:0;left:0;pointer-events:none;z-index:2;}
+#stage{position:relative;width:1200px;height:1480px;margin:0 auto;z-index:5;}
+.node{position:absolute;width:220px;border:1px solid;border-radius:4px;padding:.8rem 1rem;backdrop-filter:blur(6px);transition:transform .2s,box-shadow .2s;cursor:default;z-index:6;}
+.node:hover{transform:translateY(-2px);box-shadow:0 0 24px var(--glow);}
+.node.env{--glow:rgba(88,166,255,.55);background:rgba(22,44,78,.4);border-color:rgba(88,166,255,.5);}
+.node.config{--glow:rgba(63,185,80,.5);background:rgba(16,46,22,.4);border-color:rgba(63,185,80,.5);}
+.node.func{--glow:rgba(210,153,34,.55);background:rgba(48,36,8,.45);border-color:rgba(210,153,34,.5);}
+.node.io{--glow:rgba(188,140,255,.5);background:rgba(40,22,68,.4);border-color:rgba(188,140,255,.5);}
+.node.api{--glow:rgba(255,123,114,.5);background:rgba(68,16,16,.4);border-color:rgba(255,123,114,.5);}
+.node.out{--glow:rgba(63,185,80,.55);background:rgba(10,40,16,.45);border-color:rgba(63,185,80,.5);}
+.node-title{font-size:.72rem;font-weight:700;letter-spacing:.06em;margin-bottom:.42rem;display:flex;align-items:center;gap:.38rem;}
+.node.env .node-title{color:#58a6ff;}.node.config .node-title{color:#3fb950;}.node.func .node-title{color:#d29922;}.node.io .node-title{color:#bc8cff;}.node.api .node-title{color:#ff7b72;}.node.out .node-title{color:#3fb950;}
+.node-body{font-size:.63rem;color:#8b949e;line-height:1.58;}
+.node-body code{color:#e3b341;background:rgba(255,255,255,.05);padding:.02rem .2rem;border-radius:2px;font-size:.61rem;}
+.badge{font-size:.54rem;padding:.07rem .32rem;border-radius:2px;letter-spacing:.05em;font-weight:700;}
+.bb{background:rgba(88,166,255,.16);color:#58a6ff;border:1px solid rgba(88,166,255,.35);}
+.bg{background:rgba(63,185,80,.16);color:#3fb950;border:1px solid rgba(63,185,80,.35);}
+.by{background:rgba(210,153,34,.16);color:#d29922;border:1px solid rgba(210,153,34,.35);}
+.bp{background:rgba(188,140,255,.16);color:#bc8cff;border:1px solid rgba(188,140,255,.35);}
+.br{background:rgba(255,123,114,.16);color:#ff7b72;border:1px solid rgba(255,123,114,.35);}
+.sn{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);font-size:.58rem;font-weight:700;color:#5a6370;flex-shrink:0;}
+.legend{position:fixed;bottom:1.2rem;right:1.4rem;background:rgba(13,17,23,.9);border:1px solid #30363d;border-radius:4px;padding:.6rem .9rem;font-size:.6rem;color:#484f58;z-index:20;backdrop-filter:blur(8px);}
+.legend-title{color:#6e7681;font-weight:700;margin-bottom:.3rem;letter-spacing:.1em;}
+.lrow{display:flex;align-items:center;gap:.4rem;margin-bottom:.18rem;}
+.dot{width:7px;height:7px;border-radius:50%;}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<header>
+  <h1>evaluate<span>.py</span></h1>
+  <p>Model Evaluation — CER · WER · Exact Match</p>
+</header>
+<div id="stage">
+
+  <div id="n-cfg" class="node env" style="left:490px;top:40px;">
+    <div class="node-title"><span class="sn">1</span> CFG &nbsp;<span class="badge bb">config.py</span></div>
+    <div class="node-body">
+      <code>BASE_MODEL</code>, <code>OUTPUT_DIR</code> (lora adapter path)<br>
+      <code>MIN_PIXELS</code>, <code>MAX_PIXELS</code>, <code>EVAL_DATA</code> path
+    </div>
+  </div>
+
+  <div id="n-base" class="node api" style="left:80px;top:240px;">
+    <div class="node-title"><span class="sn">2</span> BASE &nbsp;<span class="badge br">Load Base Model</span></div>
+    <div class="node-body">
+      Qwen2_5_VLForConditionalGeneration<br>
+      4-bit NF4 quantization (same as train)<br>
+      <code>device_map="auto"</code>
+    </div>
+  </div>
+
+  <div id="n-peft" class="node func" style="left:840px;top:240px;">
+    <div class="node-title"><span class="sn">2</span> PEFT &nbsp;<span class="badge by">Load LoRA Adapter</span></div>
+    <div class="node-body">
+      <code>PeftModel.from_pretrained(base, OUTPUT_DIR)</code><br>
+      Merges adapter weights at load<br>
+      <code>model.eval()</code> — disables dropout
+    </div>
+  </div>
+
+  <div id="n-proc" class="node func" style="left:490px;top:440px;">
+    <div class="node-title"><span class="sn">3</span> PROC &nbsp;<span class="badge by">AutoProcessor</span></div>
+    <div class="node-body">
+      <code>from_pretrained(BASE_MODEL)</code><br>
+      <code>min_pixels</code> / <code>max_pixels</code> from config<br>
+      Used for tokenization + chat templates
+    </div>
+  </div>
+
+  <div id="n-data" class="node io" style="left:490px;top:640px;">
+    <div class="node-title"><span class="sn">4</span> DATA &nbsp;<span class="badge bp">Load Eval Dataset</span></div>
+    <div class="node-body">
+      Open <code>config.EVAL_DATA</code> (eval.jsonl)<br>
+      <code>json.loads</code> per line → <code>eval_samples[]</code><br>
+      <code>messages[-1]["content"]</code> = expected output
+    </div>
+  </div>
+
+  <div id="n-tmpl" class="node func" style="left:80px;top:840px;">
+    <div class="node-title"><span class="sn">5</span> TMPL &nbsp;<span class="badge by">apply_chat_template</span></div>
+    <div class="node-body">
+      <code>input_messages = messages[:-1]</code> (no answer)<br>
+      <code>apply_chat_template(..., add_generation_prompt=True)</code><br>
+      JSON prefix forcing: append <code>'{"transcription":"'</code>
+    </div>
+  </div>
+
+  <div id="n-supp" class="node io" style="left:840px;top:840px;">
+    <div class="node-title"><span class="sn">5</span> SUPP &nbsp;<span class="badge bp">Token Suppression</span></div>
+    <div class="node-body">
+      Suppresses: tool_call, tool_response tokens<br>
+      <code>bad_words_ids</code> built from tokenizer<br>
+      Prevents model from switching tasks
+    </div>
+  </div>
+
+  <div id="n-gen" class="node api" style="left:490px;top:1040px;">
+    <div class="node-title"><span class="sn">6</span> GEN &nbsp;<span class="badge br">model.generate()</span></div>
+    <div class="node-body">
+      <code>max_new_tokens=512</code><br>
+      <code>temperature=0.1</code> | <code>do_sample=False</code><br>
+      <code>bad_words_ids=bad_words_ids</code><br>
+      Timed: records <code>inference_time</code> per sample
+    </div>
+  </div>
+
+  <div id="n-parse" class="node func" style="left:80px;top:1240px;">
+    <div class="node-title"><span class="sn">7</span> PARSE &nbsp;<span class="badge by">parse_output()</span></div>
+    <div class="node-body">
+      1. Direct <code>json.loads()</code><br>
+      2. Strip markdown code blocks<br>
+      3. Truncation search (scan backwards for <code>}</code>)<br>
+      4. Auto-complete suffixes
+    </div>
+  </div>
+
+  <div id="n-metrics" class="node func" style="left:840px;top:1240px;">
+    <div class="node-title"><span class="sn">7</span> METRICS &nbsp;<span class="badge by">Compute Metrics</span></div>
+    <div class="node-body">
+      CER: char error rate via difflib<br>
+      WER: word error rate via difflib<br>
+      <code>exact_match</code>: strip comparison<br>
+      <code>valid_json</code>: parse_output not None
+    </div>
+  </div>
+
+  <div id="n-out" class="node out" style="left:480px;top:1380px;width:240px;">
+    <div class="node-title"><span class="sn">8</span> OUT &nbsp;<span class="badge bg">logs/eval_results.json</span></div>
+    <div class="node-body">
+      <code>avg_cer</code> | <code>avg_wer</code><br>
+      <code>exact_match_rate</code> (%) | <code>valid_json_rate</code> (%)<br>
+      <code>avg_inference_time</code> (s/sample)<br>
+      Per-sample log printed to stdout
+    </div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <div class="legend-title">NODE TYPES</div>
+  <div class="lrow"><div class="dot" style="background:#58a6ff;"></div> ENV / Config</div>
+  <div class="lrow"><div class="dot" style="background:#bc8cff;"></div> IO / Data</div>
+  <div class="lrow"><div class="dot" style="background:#d29922;"></div> FUNC / Transform</div>
+  <div class="lrow"><div class="dot" style="background:#ff7b72;"></div> API / Model</div>
+  <div class="lrow"><div class="dot" style="background:#3fb950;"></div> OUT / Result</div>
+</div>
+
+<script>
+const GRID=40,RADIUS=14;
+const canvas=document.getElementById('cv'),ctx=canvas.getContext('2d');
+let tick=0,ROUTES=[];
+function snap(v){return Math.round(v/GRID)*GRID;}
+function getEl(id){const el=document.getElementById(id),r=el.getBoundingClientRect(),sx=window.scrollX,sy=window.scrollY;return{left:r.left+sx,top:r.top+sy,right:r.right+sx,bottom:r.bottom+sy,cx:r.left+r.width/2+sx,cy:r.top+r.height/2+sy};}
+function polyLen(pts){let l=0;for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y;l+=Math.sqrt(dx*dx+dy*dy);}return l;}
+function polyAt(pts,t){const tot=polyLen(pts);let rem=tot*Math.max(0,Math.min(1,t));for(let i=1;i<pts.length;i++){const dx=pts[i].x-pts[i-1].x,dy=pts[i].y-pts[i-1].y,seg=Math.sqrt(dx*dx+dy*dy);if(rem<=seg||i===pts.length-1){const f=seg>0?rem/seg:0;return{x:pts[i-1].x+dx*f,y:pts[i-1].y+dy*f};}rem-=seg;}return pts[pts.length-1];}
+function buildPath(pts,r){ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length-1;i++){const p=pts[i-1],c=pts[i],n=pts[i+1],dx1=c.x-p.x,dy1=c.y-p.y,l1=Math.sqrt(dx1*dx1+dy1*dy1)||1,dx2=n.x-c.x,dy2=n.y-c.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1,rr=Math.min(r,l1/2,l2/2),bx=c.x-(dx1/l1)*rr,by=c.y-(dy1/l1)*rr,ax=c.x+(dx2/l2)*rr,ay=c.y+(dy2/l2)*rr;ctx.lineTo(bx,by);ctx.quadraticCurveTo(c.x,c.y,ax,ay);}ctx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y);}
+function arrowHead(pts,color){const n=pts.length,dx=pts[n-1].x-pts[n-2].x,dy=pts[n-1].y-pts[n-2].y,a=Math.atan2(dy,dx),sz=9,px=pts[n-1].x,py=pts[n-1].y;ctx.save();ctx.fillStyle=color+'ee';ctx.shadowColor=color;ctx.shadowBlur=10;ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-sz*Math.cos(a-0.38),py-sz*Math.sin(a-0.38));ctx.lineTo(px-sz*Math.cos(a+0.38),py-sz*Math.sin(a+0.38));ctx.closePath();ctx.fill();ctx.restore();}
+function drawRoute(route,dashOff){const{pts,color,label}=route;ctx.save();ctx.strokeStyle=color+'2a';ctx.lineWidth=5;ctx.lineJoin='round';ctx.lineCap='round';ctx.shadowColor=color;ctx.shadowBlur=12;buildPath(pts,RADIUS);ctx.stroke();ctx.restore();ctx.save();ctx.strokeStyle=color+'c0';ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.setLineDash([7,6]);ctx.lineDashOffset=-dashOff;buildPath(pts,RADIUS);ctx.stroke();ctx.restore();const tDot=((dashOff%26)/26),dot=polyAt(pts,tDot);ctx.save();ctx.fillStyle='#fff';ctx.shadowColor=color;ctx.shadowBlur=16;ctx.beginPath();ctx.arc(dot.x,dot.y,2.8,0,Math.PI*2);ctx.fill();ctx.restore();arrowHead(pts,color);if(label){const mid=polyAt(pts,0.5);ctx.save();ctx.font='600 9.5px Fira Code,monospace';ctx.fillStyle=color;ctx.globalAlpha=0.9;ctx.textAlign='center';ctx.shadowColor='#0a0c10';ctx.shadowBlur=4;ctx.fillText(label,mid.x,mid.y-8);ctx.restore();}}
+function render(){canvas.width=Math.max(document.documentElement.scrollWidth,1200);canvas.height=Math.max(document.documentElement.scrollHeight,600);tick+=0.08;ROUTES.forEach((route,i)=>{const speed=route.speed??1,dashOff=(tick*speed+i*18)%600;drawRoute(route,dashOff);});requestAnimationFrame(render);}
+
+function buildRoutes(){
+  const cfg=getEl('n-cfg'),base=getEl('n-base'),peft=getEl('n-peft'),
+        proc=getEl('n-proc'),data=getEl('n-data'),tmpl=getEl('n-tmpl'),
+        supp=getEl('n-supp'),gen=getEl('n-gen'),parse=getEl('n-parse'),
+        metrics=getEl('n-metrics'),out=getEl('n-out');
+
+  const Y01=snap((cfg.bottom+base.top)/2);
+  const Y12=snap((base.bottom+proc.top)/2);
+  const Y23=snap((proc.bottom+data.top)/2);
+  const Y34=snap((data.bottom+tmpl.top)/2);
+  const Y45=snap((tmpl.bottom+gen.top)/2);
+  const Y56=snap((gen.bottom+parse.top)/2);
+  const Y67=snap((parse.bottom+out.top)/2);
+  const XR=snap(peft.right+60);
+
+  ROUTES=[
+    // cfg → base (left)
+    {pts:[{x:cfg.cx,y:cfg.bottom},{x:cfg.cx,y:Y01},{x:base.cx,y:Y01},{x:base.cx,y:base.top}],color:'#58a6ff',label:'BASE_MODEL',speed:0.9},
+    // cfg → peft (right)
+    {pts:[{x:cfg.cx,y:cfg.bottom},{x:cfg.cx,y:Y01},{x:peft.cx,y:Y01},{x:peft.cx,y:peft.top}],color:'#58a6ff',label:'OUTPUT_DIR',speed:0.9},
+
+    // base → proc (left branch merges into center)
+    {pts:[{x:base.cx,y:base.bottom},{x:base.cx,y:Y12},{x:proc.cx-28,y:Y12},{x:proc.cx-28,y:proc.top}],color:'#ff7b72',label:'base model',speed:0.85},
+    // peft → proc (right branch)
+    {pts:[{x:peft.cx,y:peft.bottom},{x:peft.cx,y:Y12},{x:proc.cx+28,y:Y12},{x:proc.cx+28,y:proc.top}],color:'#d29922',label:'adapted model',speed:0.85},
+
+    // proc → data
+    {pts:[{x:proc.cx,y:proc.bottom},{x:proc.cx,y:Y23},{x:data.cx,y:Y23},{x:data.cx,y:data.top}],color:'#3fb950',label:'processor ready',speed:0.9},
+
+    // data → tmpl (left)
+    {pts:[{x:data.cx,y:data.bottom},{x:data.cx,y:Y34},{x:tmpl.cx,y:Y34},{x:tmpl.cx,y:tmpl.top}],color:'#bc8cff',label:'eval samples',speed:0.85},
+    // data → supp (right)
+    {pts:[{x:data.right,y:data.cy},{x:supp.cx,y:data.cy},{x:supp.cx,y:supp.top}],color:'#bc8cff',label:'tokenizer',speed:0.75},
+
+    // tmpl → gen (left side up through corridor)
+    {pts:[{x:tmpl.cx,y:tmpl.bottom},{x:tmpl.cx,y:Y45},{x:gen.cx-28,y:Y45},{x:gen.cx-28,y:gen.top}],color:'#d29922',label:'input + prefix',speed:0.85},
+    // supp → gen (right side)
+    {pts:[{x:supp.cx,y:supp.bottom},{x:supp.cx,y:Y45},{x:gen.cx+28,y:Y45},{x:gen.cx+28,y:gen.top}],color:'#e3b341',label:'bad_words',speed:0.8},
+
+    // gen → parse (left)
+    {pts:[{x:gen.cx,y:gen.bottom},{x:gen.cx,y:Y56},{x:parse.cx,y:Y56},{x:parse.cx,y:parse.top}],color:'#ff7b72',label:'raw output',speed:0.9},
+    // gen → metrics (right corridor)
+    {pts:[{x:gen.right,y:gen.cy},{x:XR,y:gen.cy},{x:XR,y:metrics.cy},{x:metrics.right,y:metrics.cy}],color:'#ff7b72',label:'inference_time',speed:0.8},
+
+    // parse → out
+    {pts:[{x:parse.cx,y:parse.bottom},{x:parse.cx,y:Y67},{x:out.cx,y:Y67},{x:out.cx,y:out.top}],color:'#3fb950',label:'pred_text',speed:0.9},
+    // metrics → out
+    {pts:[{x:metrics.cx,y:metrics.bottom},{x:metrics.cx,y:Y67},{x:out.cx+28,y:Y67},{x:out.cx+28,y:out.top}],color:'#3fb950',label:'CER/WER',speed:0.9},
+
+    // loop-back: gen samples loop (show iteration)
+    {pts:[{x:gen.left,y:gen.cy},{x:40,y:gen.cy},{x:40,y:data.cy},{x:data.left,y:data.cy}],color:'#e3b341',label:'↺ next sample',speed:0.65},
+  ];
+}
+
+window.addEventListener('load',()=>{buildRoutes();render();});
+window.addEventListener('resize',buildRoutes);
+</script>
+</body>
+</html>
