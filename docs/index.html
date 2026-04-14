@@ -105,6 +105,74 @@
         color: var(--green);
       }
 
+      /* ── META / SCOPE BAR ── */
+      .meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0;
+        margin-top: 1.5rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        overflow: hidden;
+        position: relative;
+      }
+      .meta::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: linear-gradient(
+          180deg,
+          var(--blue),
+          var(--green),
+          var(--amber)
+        );
+      }
+      .meta-item {
+        padding: 0.5rem 1rem;
+        border-right: 1px solid var(--line);
+      }
+      .meta-item:last-child {
+        border-right: none;
+      }
+      .meta-k {
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.15rem;
+      }
+      .meta-v {
+        font-size: 0.68rem;
+        color: var(--text);
+        letter-spacing: 0.02em;
+        line-height: 1.2;
+      }
+      .meta-v .tag {
+        color: var(--green);
+      }
+      .meta-v .id {
+        color: var(--amber);
+        font-size: 0.64rem;
+        letter-spacing: 0.08em;
+      }
+      .meta-v .todo {
+        color: var(--mute);
+        font-style: italic;
+      }
+      @media (max-width: 720px) {
+        .meta-item {
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+        }
+        .meta-item:last-child {
+          border-bottom: none;
+        }
+      }
+
       /* ── HERO / DISTILLATION DIAGRAM ── */
       .hero {
         position: relative;
@@ -649,6 +717,33 @@
     </header>
 
     <main>
+      <!-- ── SCOPE / AUTHORSHIP META ── -->
+      <section class="meta" aria-label="Project scope">
+        <div class="meta-item">
+          <div class="meta-k">Student</div>
+          <div class="meta-v">Tahamid Hossain</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-k">Student ID</div>
+          <div class="meta-v"><span class="id">[20220001801]</span></div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-k">Course</div>
+          <div class="meta-v">MAI 656 — <span class="tag">NLP</span></div>
+          <div class="meta-v">BCS407 — <span class="tag">AI</span></div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-k">University</div>
+          <div class="meta-v">Canadian University Dubai</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-k">Supervisor</div>
+          <div class="meta-v">
+            <span class="todo">[Dr. Arash kermani, Dr. Najla Al Futaisi]</span>
+          </div>
+        </div>
+      </section>
+
       <!-- ── HERO: animated distillation diagram ── -->
       <section class="hero">
         <div class="hero-title">
