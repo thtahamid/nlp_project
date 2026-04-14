@@ -1,179 +1,1008 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NLP Pipeline — Visualizations</title>
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NLP Pipeline — Knowledge Distillation</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-body {
-  background: #0a0c10;
-  font-family: 'Fira Code', 'Cascadia Code', monospace;
-  color: #c9d1d9;
-  min-height: 100vh;
-}
+      :root {
+        --bg: #0a0c10;
+        --surface: rgba(22, 27, 34, 0.85);
+        --line: #30363d;
+        --text: #c9d1d9;
+        --mute: #484f58;
+        --sub: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --amber: #d29922;
+        --magenta: #bc8cff;
+        --red: #f85149;
+      }
 
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(48,54,61,0.4) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(48,54,61,0.4) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
-}
+      body {
+        background: var(--bg);
+        font-family: "Fira Code", "Cascadia Code", monospace;
+        color: var(--text);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
 
-header {
-  text-align: center;
-  padding: 3rem 1rem 2rem;
-  position: relative;
-  z-index: 10;
-}
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(48, 54, 61, 0.4) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(48, 54, 61, 0.4) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
 
-header h1 {
-  font-size: 1.1rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: #58a6ff;
-}
+      /* ── HEADER ── */
+      header {
+        text-align: center;
+        padding: 3rem 1rem 1.5rem;
+        position: relative;
+        z-index: 10;
+      }
+      header h1 {
+        font-size: 1.1rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+      header h1 span {
+        color: var(--green);
+      }
+      header p {
+        font-size: 0.7rem;
+        color: var(--mute);
+        letter-spacing: 0.12em;
+        margin-top: 0.4rem;
+      }
 
-header h1 span { color: #3fb950; }
+      main {
+        position: relative;
+        z-index: 10;
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 1rem 1.5rem 4rem;
+      }
 
-header p {
-  font-size: 0.7rem;
-  color: #484f58;
-  letter-spacing: 0.12em;
-  margin-top: 0.4rem;
-}
+      /* ── SECTION HEADINGS ── */
+      .section-label {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.62rem;
+        letter-spacing: 0.22em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin: 3rem 0 1.2rem;
+      }
+      .section-label::before {
+        content: "";
+        width: 20px;
+        height: 1px;
+        background: var(--line);
+      }
+      .section-label::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, var(--line), transparent);
+      }
+      .section-label .n {
+        color: var(--green);
+      }
 
-main {
-  position: relative;
-  z-index: 10;
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 1rem 1.5rem 4rem;
-}
+      /* ── HERO / DISTILLATION DIAGRAM ── */
+      .hero {
+        position: relative;
+        margin-top: 1.5rem;
+        padding: 2.5rem 1.5rem 2rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 1rem;
-}
+      .hero-title {
+        font-size: 1.4rem;
+        letter-spacing: 0.04em;
+        color: var(--text);
+        font-weight: 500;
+        margin-bottom: 0.3rem;
+      }
+      .hero-title em {
+        font-style: normal;
+        color: var(--amber);
+        position: relative;
+      }
+      .hero-title em::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -2px;
+        height: 1px;
+        background: var(--amber);
+        opacity: 0.4;
+      }
+      .hero-sub {
+        font-size: 0.72rem;
+        color: var(--sub);
+        line-height: 1.7;
+        letter-spacing: 0.02em;
+        max-width: 680px;
+        margin-bottom: 2rem;
+      }
 
-a.card {
-  display: block;
-  text-decoration: none;
-  background: rgba(22, 27, 34, 0.85);
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 1.2rem 1.4rem;
-  transition: border-color 0.15s, background 0.15s;
-}
+      /* the SVG diagram */
+      .diagram {
+        width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+      }
 
-a.card:hover {
-  border-color: #58a6ff;
-  background: rgba(31, 38, 50, 0.95);
-}
+      /* flowing dashed line animation */
+      .flow-path {
+        fill: none;
+        stroke-width: 1.2;
+        stroke-dasharray: 4 6;
+        animation: dashflow 1.8s linear infinite;
+      }
+      @keyframes dashflow {
+        to {
+          stroke-dashoffset: -40;
+        }
+      }
 
-.card-num {
-  font-size: 0.6rem;
-  letter-spacing: 0.18em;
-  color: #484f58;
-  margin-bottom: 0.4rem;
-  text-transform: uppercase;
-}
+      .flow-teacher {
+        stroke: var(--blue);
+      }
+      .flow-student {
+        stroke: var(--green);
+      }
+      .flow-feedback {
+        stroke: var(--magenta);
+        stroke-dasharray: 2 4;
+      }
 
-.card-title {
-  font-size: 0.88rem;
-  color: #58a6ff;
-  letter-spacing: 0.06em;
-  margin-bottom: 0.5rem;
-}
+      /* pulsing nodes */
+      .node-ring {
+        fill: none;
+        stroke-width: 1;
+        animation: pulse 2.4s ease-in-out infinite;
+        transform-origin: center;
+        transform-box: fill-box;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.2;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.9;
+          transform: scale(1.08);
+        }
+      }
 
-.card-desc {
-  font-size: 0.7rem;
-  color: #8b949e;
-  line-height: 1.6;
-  letter-spacing: 0.02em;
-}
+      .teacher-glow {
+        stroke: var(--blue);
+      }
+      .student-glow {
+        stroke: var(--green);
+      }
 
-.card-tag {
-  display: inline-block;
-  margin-top: 0.8rem;
-  font-size: 0.6rem;
-  letter-spacing: 0.12em;
-  color: #3fb950;
-  border: 1px solid #238636;
-  border-radius: 4px;
-  padding: 0.15rem 0.5rem;
-  text-transform: uppercase;
-}
-</style>
-</head>
-<body>
+      /* token packets flying across */
+      .packet {
+        fill: var(--amber);
+        r: 2.5;
+      }
+      .packet-a {
+        animation: flow-right 3s linear infinite;
+      }
+      .packet-b {
+        animation: flow-right 3s linear infinite 1s;
+      }
+      .packet-c {
+        animation: flow-right 3s linear infinite 2s;
+      }
+      @keyframes flow-right {
+        0% {
+          transform: translateX(0);
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        90% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(210px);
+          opacity: 0;
+        }
+      }
 
-<header>
-  <h1>NLP Pipeline — <span>Flow Visualizations</span></h1>
-  <p>Arabic Handwriting Recognition · Fine-tuning Qwen2.5-VL-7B with LoRA</p>
-</header>
+      /* LoRA adapter square — rotating */
+      .lora-rect {
+        fill: none;
+        stroke: var(--magenta);
+        stroke-width: 1.2;
+        transform-origin: center;
+        transform-box: fill-box;
+        animation: spin 8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
-<main>
-  <div class="grid">
+      /* Arabic character streaming */
+      .arabic-stream text {
+        fill: var(--amber);
+        font-family: "Noto Sans Arabic", "Amiri", serif;
+        font-size: 11px;
+        opacity: 0;
+      }
+      .arabic-stream text:nth-child(1) {
+        animation: streamfade 4s ease-in-out infinite 0s;
+      }
+      .arabic-stream text:nth-child(2) {
+        animation: streamfade 4s ease-in-out infinite 0.6s;
+      }
+      .arabic-stream text:nth-child(3) {
+        animation: streamfade 4s ease-in-out infinite 1.2s;
+      }
+      .arabic-stream text:nth-child(4) {
+        animation: streamfade 4s ease-in-out infinite 1.8s;
+      }
+      .arabic-stream text:nth-child(5) {
+        animation: streamfade 4s ease-in-out infinite 2.4s;
+      }
+      @keyframes streamfade {
+        0%,
+        100% {
+          opacity: 0;
+          transform: translateX(0);
+        }
+        20% {
+          opacity: 0.95;
+        }
+        80% {
+          opacity: 0.3;
+        }
+        100% {
+          transform: translateX(160px);
+        }
+      }
 
-    <a class="card" href="pipeline_visualization/01-collect_data_flow.html">
-      <div class="card-num">01 / collect_data.py</div>
-      <div class="card-title">Data Collection Flow</div>
-      <div class="card-desc">GPT-4 Vision API labels Arabic handwritten images. Covers env setup, client init, image reading, API calls, and JSON output.</div>
-      <span class="card-tag">OpenAI API</span>
-    </a>
+      /* node labels */
+      .n-label {
+        fill: var(--text);
+        font-family: "Fira Code", monospace;
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        text-anchor: middle;
+      }
+      .n-meta {
+        fill: var(--mute);
+        font-family: "Fira Code", monospace;
+        font-size: 8px;
+        letter-spacing: 0.12em;
+        text-anchor: middle;
+        text-transform: uppercase;
+      }
+      .n-chip {
+        fill: var(--amber);
+        font-family: "Fira Code", monospace;
+        font-size: 8px;
+        letter-spacing: 0.08em;
+      }
 
-    <a class="card" href="pipeline_visualization/02-transform_data_flow.html">
-      <div class="card-num">02 / transform_data.py</div>
-      <div class="card-title">Data Transformation Flow</div>
-      <div class="card-desc">Converts GPT labels to Qwen training format. JSONL parsing, base64 image encoding, sample validation, shuffling, and 80/20 train/eval split.</div>
-      <span class="card-tag">Preprocessing</span>
-    </a>
+      .rail-label {
+        fill: var(--sub);
+        font-family: "Fira Code", monospace;
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
 
-    <a class="card" href="pipeline_visualization/03-config_flow.html">
-      <div class="card-num">03 / config.py</div>
-      <div class="card-title">Configuration Hub</div>
-      <div class="card-desc">Centralizes all hyperparameters — model config, LoRA settings, training args, quantization, image bounds, and I/O paths.</div>
-      <span class="card-tag">Config</span>
-    </a>
+      /* ── LEGEND UNDER DIAGRAM ── */
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.2rem 2rem;
+        margin-top: 1.8rem;
+        padding-top: 1.4rem;
+        border-top: 1px dashed var(--line);
+        font-size: 0.66rem;
+        color: var(--sub);
+        letter-spacing: 0.05em;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        flex-shrink: 0;
+      }
+      .sw-teacher {
+        background: var(--blue);
+      }
+      .sw-student {
+        background: var(--green);
+      }
+      .sw-lora {
+        background: var(--magenta);
+      }
+      .sw-tokens {
+        background: var(--amber);
+      }
 
-    <a class="card" href="pipeline_visualization/04-train_flow.html">
-      <div class="card-num">04 / train.py</div>
-      <div class="card-title">Training Pipeline</div>
-      <div class="card-desc">LoRA fine-tuning on Qwen2.5-VL-7B. Quantization, model loading, processor init, LoRA adapter setup, dataset loading, and model saving.</div>
-      <span class="card-tag">Fine-tuning</span>
-    </a>
+      /* ── STATS STRIP ── */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0;
+        margin-top: 1rem;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .stat {
+        padding: 1.1rem 1.3rem;
+        border-right: 1px solid var(--line);
+        position: relative;
+      }
+      .stat:last-child {
+        border-right: none;
+      }
+      .stat-num {
+        font-size: 1.4rem;
+        color: var(--blue);
+        letter-spacing: -0.02em;
+        font-weight: 500;
+      }
+      .stat-num .unit {
+        color: var(--mute);
+        font-size: 0.8rem;
+        margin-left: 0.15rem;
+      }
+      .stat-num.green {
+        color: var(--green);
+      }
+      .stat-num.amber {
+        color: var(--amber);
+      }
+      .stat-label {
+        font-size: 0.6rem;
+        color: var(--mute);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-top: 0.4rem;
+      }
+      .stat-note {
+        font-size: 0.66rem;
+        color: var(--sub);
+        margin-top: 0.3rem;
+        line-height: 1.5;
+      }
 
-    <a class="card" href="pipeline_visualization/05-evaluate_flow.html">
-      <div class="card-num">05 / evaluate.py</div>
-      <div class="card-title">Evaluation Pipeline</div>
-      <div class="card-desc">Base model + LoRA adapter merging, inference generation, JSON parsing, and metric computation — CER, WER, exact match.</div>
-      <span class="card-tag">Metrics</span>
-    </a>
+      /* ── STAGE STRIP ── */
+      .stages {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0;
+        margin-top: 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+      .stage {
+        padding: 1.2rem 1rem;
+        border-right: 1px solid var(--line);
+        position: relative;
+        transition: background 0.2s;
+      }
+      .stage:last-child {
+        border-right: none;
+      }
+      .stage:hover {
+        background: rgba(88, 166, 255, 0.05);
+      }
+      .stage::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 2px;
+        width: 0;
+        background: var(--green);
+        animation: fillbar 8s ease-in-out infinite;
+      }
+      .stage:nth-child(1)::before {
+        animation-delay: 0s;
+      }
+      .stage:nth-child(2)::before {
+        animation-delay: 1.6s;
+      }
+      .stage:nth-child(3)::before {
+        animation-delay: 3.2s;
+      }
+      .stage:nth-child(4)::before {
+        animation-delay: 4.8s;
+      }
+      .stage:nth-child(5)::before {
+        animation-delay: 6.4s;
+      }
+      @keyframes fillbar {
+        0%,
+        15% {
+          width: 0;
+        }
+        5% {
+          width: 100%;
+        }
+        20%,
+        100% {
+          width: 0;
+        }
+      }
 
-    <a class="card" href="pipeline_visualization/06-vllm_launch_flow.html">
-      <div class="card-num">06 / vllm launch</div>
-      <div class="card-title">vLLM Server Launch</div>
-      <div class="card-desc">vLLM inference server startup with LoRA args, GPU memory config, LoRA registry, rank mismatch warnings, and OpenAI-compatible API setup.</div>
-      <span class="card-tag">Inference</span>
-    </a>
+      .stage-n {
+        font-size: 0.58rem;
+        color: var(--mute);
+        letter-spacing: 0.16em;
+        margin-bottom: 0.5rem;
+      }
+      .stage-name {
+        font-size: 0.78rem;
+        color: var(--text);
+        letter-spacing: 0.04em;
+        margin-bottom: 0.4rem;
+      }
+      .stage-desc {
+        font-size: 0.62rem;
+        color: var(--sub);
+        line-height: 1.6;
+      }
 
-    <a class="card" href="pipeline_visualization/07-vllm_test_flow.html">
-      <div class="card-num">07 / vllm test</div>
-      <div class="card-title">vLLM Server Test</div>
-      <div class="card-desc">Tests three endpoints: health check, model listing, and inference requests. Documents request/response structures and curl examples.</div>
-      <span class="card-tag">Testing</span>
-    </a>
+      /* ── CONCEPT CARDS ── */
+      .concepts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+      }
+      .concept {
+        padding: 1.2rem 1.3rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        border-left: 2px solid;
+      }
+      .concept.teacher {
+        border-left-color: var(--blue);
+      }
+      .concept.student {
+        border-left-color: var(--green);
+      }
+      .concept.lora {
+        border-left-color: var(--magenta);
+      }
+      .concept.deploy {
+        border-left-color: var(--amber);
+      }
 
-  </div>
-</main>
+      .concept-tag {
+        font-size: 0.58rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+      }
+      .concept.teacher .concept-tag {
+        color: var(--blue);
+      }
+      .concept.student .concept-tag {
+        color: var(--green);
+      }
+      .concept.lora .concept-tag {
+        color: var(--magenta);
+      }
+      .concept.deploy .concept-tag {
+        color: var(--amber);
+      }
 
-</body>
+      .concept-title {
+        font-size: 0.82rem;
+        color: var(--text);
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.03em;
+      }
+      .concept-desc {
+        font-size: 0.68rem;
+        color: var(--sub);
+        line-height: 1.65;
+      }
+
+      /* ── VISUALIZATIONS GRID (existing cards) ── */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 1rem;
+      }
+
+      a.card {
+        display: block;
+        text-decoration: none;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1.2rem 1.4rem;
+        transition:
+          border-color 0.15s,
+          background 0.15s,
+          transform 0.15s;
+        position: relative;
+      }
+      a.card::before {
+        content: "→";
+        position: absolute;
+        top: 1.2rem;
+        right: 1.2rem;
+        color: var(--mute);
+        transition:
+          transform 0.2s,
+          color 0.2s;
+      }
+      a.card:hover {
+        border-color: var(--blue);
+        background: rgba(31, 38, 50, 0.95);
+      }
+      a.card:hover::before {
+        color: var(--blue);
+        transform: translateX(4px);
+      }
+
+      .card-num {
+        font-size: 0.6rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        margin-bottom: 0.4rem;
+        text-transform: uppercase;
+      }
+      .card-title {
+        font-size: 0.88rem;
+        color: var(--blue);
+        letter-spacing: 0.06em;
+        margin-bottom: 0.5rem;
+      }
+      .card-desc {
+        font-size: 0.7rem;
+        color: var(--sub);
+        line-height: 1.6;
+        letter-spacing: 0.02em;
+      }
+      .card-tag {
+        display: inline-block;
+        margin-top: 0.8rem;
+        font-size: 0.6rem;
+        letter-spacing: 0.12em;
+        color: var(--green);
+        border: 1px solid #238636;
+        border-radius: 4px;
+        padding: 0.15rem 0.5rem;
+        text-transform: uppercase;
+      }
+
+      /* ── RESPONSIVE ── */
+      @media (max-width: 720px) {
+        .stages {
+          grid-template-columns: 1fr 1fr;
+        }
+        .stage {
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+        }
+        .hero-title {
+          font-size: 1.1rem;
+        }
+      }
+
+      /* reduce motion */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>NLP Pipeline — <span>Knowledge Distillation</span></h1>
+      <p>
+        Teaching Qwen2.5-VL-7B to read Arabic handwriting — without the GPT bill
+      </p>
+    </header>
+
+    <main>
+      <!-- ── HERO: animated distillation diagram ── -->
+      <section class="hero">
+        <div class="hero-title">
+          Knowledge distillation from <em>GPT-5.2/5.4</em> into a
+          <em>Qwen2/3-7/9b</em>.
+        </div>
+        <p class="hero-sub">
+          A large commercial model (GPT&#8209;5.2) labels Arabic handwritten
+          images. A smaller open model (Qwen2.5&#8209;VL&#8209;7B) learns to
+          replicate those labels through LoRA fine&#8209;tuning — then runs
+          locally at near&#8209;zero cost.
+        </p>
+
+        <svg
+          class="diagram"
+          viewBox="0 0 960 300"
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <!-- rails / guides -->
+          <line
+            x1="60"
+            y1="150"
+            x2="900"
+            y2="150"
+            stroke="#30363d"
+            stroke-width="0.5"
+            stroke-dasharray="2 4"
+          />
+
+          <!-- IMAGE source (Arabic handwriting) -->
+          <g transform="translate(80, 120)">
+            <rect
+              x="0"
+              y="0"
+              width="90"
+              height="60"
+              rx="2"
+              fill="none"
+              stroke="#484f58"
+              stroke-width="1"
+            />
+            <g class="arabic-stream">
+              <text x="8" y="22">ك</text>
+              <text x="24" y="22">ت</text>
+              <text x="40" y="22">ا</text>
+              <text x="56" y="22">ب</text>
+              <text x="72" y="22">ة</text>
+            </g>
+            <line
+              x1="10"
+              y1="38"
+              x2="80"
+              y2="38"
+              stroke="#484f58"
+              stroke-width="0.5"
+            />
+            <line
+              x1="10"
+              y1="46"
+              x2="60"
+              y2="46"
+              stroke="#484f58"
+              stroke-width="0.5"
+            />
+            <text class="n-meta" x="45" y="78">image</text>
+          </g>
+
+          <!-- flow image → teacher -->
+          <path class="flow-path flow-teacher" d="M 170 150 L 260 150" />
+
+          <!-- TEACHER node: GPT-5.2 -->
+          <g transform="translate(310, 150)">
+            <circle class="node-ring teacher-glow" cx="0" cy="0" r="52" />
+            <circle
+              cx="0"
+              cy="0"
+              r="38"
+              fill="#0a0c10"
+              stroke="#58a6ff"
+              stroke-width="1.2"
+            />
+            <text class="n-label" x="0" y="-4">GPT-5.2</text>
+            <text class="n-meta" x="0" y="10">teacher</text>
+            <text class="n-chip" x="-20" y="55">~1.8T params</text>
+          </g>
+
+          <!-- token packets: teacher → student -->
+          <g transform="translate(360, 150)">
+            <circle class="packet packet-a" cx="0" cy="0" />
+            <circle class="packet packet-b" cx="0" cy="-8" />
+            <circle class="packet packet-c" cx="0" cy="8" />
+          </g>
+
+          <!-- label: "distilled labels" -->
+          <text class="rail-label" x="480" y="132" text-anchor="middle">
+            distilled labels · jsonl
+          </text>
+
+          <!-- flow teacher → student -->
+          <path class="flow-path flow-student" d="M 362 150 L 578 150" />
+
+          <!-- STUDENT node: Qwen + LoRA -->
+          <g transform="translate(640, 150)">
+            <circle class="node-ring student-glow" cx="0" cy="0" r="44" />
+            <circle
+              cx="0"
+              cy="0"
+              r="32"
+              fill="#0a0c10"
+              stroke="#3fb950"
+              stroke-width="1.2"
+            />
+            <text class="n-label" x="0" y="-4">Qwen-7B</text>
+            <text class="n-meta" x="0" y="8">student</text>
+
+            <!-- LoRA rotating adapter -->
+            <g transform="translate(38, -28)">
+              <rect class="lora-rect" x="-8" y="-8" width="16" height="16" />
+              <text class="n-chip" x="16" y="4">LoRA r=32</text>
+            </g>
+
+            <text class="n-chip" x="-18" y="52">7B params · 2% trained</text>
+          </g>
+
+          <!-- output flow → deployment -->
+          <path class="flow-path flow-student" d="M 678 150 L 780 150" />
+
+          <!-- DEPLOYMENT endpoint -->
+          <g transform="translate(820, 120)">
+            <rect
+              x="0"
+              y="0"
+              width="68"
+              height="60"
+              rx="2"
+              fill="none"
+              stroke="#d29922"
+              stroke-width="1"
+            />
+            <text class="n-label" x="34" y="26" style="fill: #d29922">
+              vLLM
+            </text>
+            <text class="n-meta" x="34" y="40">:8000</text>
+            <text class="n-meta" x="34" y="78">local</text>
+          </g>
+
+          <!-- feedback arc: eval comparison -->
+          <path
+            class="flow-path flow-feedback"
+            d="M 640 194 C 640 260, 310 260, 310 202"
+          />
+          <text class="rail-label" x="475" y="255" text-anchor="middle">
+            evaluate · CER · WER · exact-match
+          </text>
+        </svg>
+
+        <div class="legend">
+          <div class="legend-item">
+            <span class="swatch sw-teacher"></span>Teacher (GPT-5.2)
+          </div>
+          <div class="legend-item">
+            <span class="swatch sw-student"></span>Student (Qwen-7B)
+          </div>
+          <div class="legend-item">
+            <span class="swatch sw-lora"></span>LoRA adapter
+          </div>
+          <div class="legend-item">
+            <span class="swatch sw-tokens"></span>Arabic tokens
+          </div>
+        </div>
+      </section>
+
+      <!-- ── STATS ── -->
+      <div class="section-label"><span class="n">//</span> why distill</div>
+      <section class="stats">
+        <div class="stat">
+          <div class="stat-num amber">~$0<span class="unit">/img</span></div>
+          <div class="stat-label">inference cost</div>
+          <div class="stat-note">vs. $0.01–0.05 per GPT call</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num green">~2<span class="unit">%</span></div>
+          <div class="stat-label">params trained</div>
+          <div class="stat-note">LoRA adapters only — base frozen</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">24<span class="unit">GB</span></div>
+          <div class="stat-label">gpu vram</div>
+          <div class="stat-note">4-bit quantization + gradient ckpt</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num green">100<span class="unit">%</span></div>
+          <div class="stat-label">data on-prem</div>
+          <div class="stat-note">no images leave the server</div>
+        </div>
+      </section>
+
+      <!-- ── PIPELINE STAGES ── -->
+      <div class="section-label">
+        <span class="n">//</span> five stages, end to end
+      </div>
+      <section class="stages">
+        <div class="stage">
+          <div class="stage-n">01 · collect</div>
+          <div class="stage-name">GPT labeling</div>
+          <div class="stage-desc">
+            Send images to GPT-5.2, capture transcriptions as JSONL.
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-n">02 · transform</div>
+          <div class="stage-name">Reformat</div>
+          <div class="stage-desc">
+            Convert GPT chat format → Qwen2.5-VL format. 80/20 split.
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-n">03 · train</div>
+          <div class="stage-name">LoRA fine-tune</div>
+          <div class="stage-desc">
+            Attach rank-32 adapters on attention + MLP. 3 epochs.
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-n">04 · evaluate</div>
+          <div class="stage-name">Measure</div>
+          <div class="stage-desc">
+            CER / WER / exact-match against held-out eval set.
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-n">05 · serve</div>
+          <div class="stage-name">vLLM + LoRA</div>
+          <div class="stage-desc">
+            OpenAI-compatible endpoint. Local, fast, private.
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CONCEPTS ── -->
+      <div class="section-label"><span class="n">//</span> core concepts</div>
+      <section class="concepts">
+        <div class="concept teacher">
+          <div class="concept-tag">Teacher · frozen</div>
+          <div class="concept-title">GPT-5.2 Vision</div>
+          <div class="concept-desc">
+            A large, expensive vision LM used only to generate training labels.
+            Never shipped to production.
+          </div>
+        </div>
+        <div class="concept student">
+          <div class="concept-tag">Student · trainable</div>
+          <div class="concept-title">Qwen2.5-VL-7B</div>
+          <div class="concept-desc">
+            Open 7B model. Small enough to self-host, capable enough to imitate
+            the teacher after fine-tuning.
+          </div>
+        </div>
+        <div class="concept lora">
+          <div class="concept-tag">Adapter · r=32</div>
+          <div class="concept-title">Low-Rank Adaptation</div>
+          <div class="concept-desc">
+            Freeze the 7B. Inject tiny rank-32 matrices into attention and MLPs.
+            Train &lt;2% of weights.
+          </div>
+        </div>
+        <div class="concept deploy">
+          <div class="concept-tag">Runtime · vLLM</div>
+          <div class="concept-title">OpenAI-compatible</div>
+          <div class="concept-desc">
+            One binary. LoRA swapped in at load. Same request shape as the
+            OpenAI SDK — drop-in replacement.
+          </div>
+        </div>
+      </section>
+
+      <!-- ── FLOW VISUALIZATIONS (existing) ── -->
+      <div class="section-label">
+        <span class="n">//</span> flow visualizations
+      </div>
+      <section class="grid">
+        <a class="card" href="pipeline_visualization/01-collect_data_flow.html">
+          <div class="card-num">01 / collect_data.py</div>
+          <div class="card-title">Data Collection Flow</div>
+          <div class="card-desc">
+            GPT-4 Vision labels Arabic handwritten images. Env setup, client
+            init, image reading, API calls, JSON output.
+          </div>
+          <span class="card-tag">OpenAI API</span>
+        </a>
+
+        <a
+          class="card"
+          href="pipeline_visualization/02-transform_data_flow.html"
+        >
+          <div class="card-num">02 / transform_data.py</div>
+          <div class="card-title">Data Transformation Flow</div>
+          <div class="card-desc">
+            Convert GPT labels to Qwen training format. JSONL parsing, base64
+            encoding, validation, 80/20 split.
+          </div>
+          <span class="card-tag">Preprocessing</span>
+        </a>
+
+        <a class="card" href="pipeline_visualization/03-config_flow.html">
+          <div class="card-num">03 / config.py</div>
+          <div class="card-title">Configuration Hub</div>
+          <div class="card-desc">
+            Centralizes hyperparameters — model config, LoRA settings, training
+            args, quantization, I/O paths.
+          </div>
+          <span class="card-tag">Config</span>
+        </a>
+
+        <a class="card" href="pipeline_visualization/04-train_flow.html">
+          <div class="card-num">04 / train.py</div>
+          <div class="card-title">Training Pipeline</div>
+          <div class="card-desc">
+            LoRA fine-tuning on Qwen2.5-VL-7B. Quantization, processor init,
+            adapter setup, dataset loading.
+          </div>
+          <span class="card-tag">Fine-tuning</span>
+        </a>
+
+        <a class="card" href="pipeline_visualization/05-evaluate_flow.html">
+          <div class="card-num">05 / evaluate.py</div>
+          <div class="card-title">Evaluation Pipeline</div>
+          <div class="card-desc">
+            Base + LoRA merge, inference, JSON parsing, metric computation —
+            CER, WER, exact match.
+          </div>
+          <span class="card-tag">Metrics</span>
+        </a>
+
+        <a class="card" href="pipeline_visualization/06-vllm_launch_flow.html">
+          <div class="card-num">06 / vllm launch</div>
+          <div class="card-title">vLLM Server Launch</div>
+          <div class="card-desc">
+            Inference server startup with LoRA args, GPU memory config,
+            registry, OpenAI-compatible API.
+          </div>
+          <span class="card-tag">Inference</span>
+        </a>
+
+        <a class="card" href="pipeline_visualization/07-vllm_test_flow.html">
+          <div class="card-num">07 / vllm test</div>
+          <div class="card-title">vLLM Server Test</div>
+          <div class="card-desc">
+            Tests three endpoints: health, model listing, inference.
+            Request/response structures and curl examples.
+          </div>
+          <span class="card-tag">Testing</span>
+        </a>
+      </section>
+    </main>
+  </body>
 </html>
