@@ -32,3 +32,10 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+
+
+# Files and folders
+
+data/raw_png
+sample_training_data/raw_png
