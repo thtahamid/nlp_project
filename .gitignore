@@ -13,13 +13,7 @@ __pycache__/
 .env
 *.pem
 
-# Data (large files, generated)
-data
-data/raw/
-data/processed/
-data/train/
-data/eval/
-data/gpt_labels.jsonl
+
 
 # Model weights and adapters
 models/
