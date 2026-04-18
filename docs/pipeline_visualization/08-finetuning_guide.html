@@ -1,0 +1,2693 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Master Finetuning Guide — Qwen VL</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg: #0a0c10;
+        --surface: rgba(22, 27, 34, 0.85);
+        --surface-2: rgba(22, 27, 34, 0.55);
+        --line: #30363d;
+        --line-soft: #21262d;
+        --text: #c9d1d9;
+        --mute: #484f58;
+        --sub: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --amber: #d29922;
+        --magenta: #bc8cff;
+        --red: #f85149;
+        --teal: #39c5cf;
+      }
+
+      body {
+        background: var(--bg);
+        font-family: "Fira Code", "Cascadia Code", monospace;
+        color: var(--text);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      body::before {
+        content: "";
+        position: fixed; inset: 0;
+        background-image:
+          linear-gradient(rgba(48, 54, 61, 0.4) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(48, 54, 61, 0.4) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      header {
+        text-align: center;
+        padding: 3rem 1rem 1rem;
+        position: relative;
+        z-index: 10;
+      }
+      header .tag {
+        font-size: 0.54rem;
+        letter-spacing: 0.24em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+      }
+      header h1 {
+        font-size: 1.3rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+      header h1 .accent { color: var(--amber); }
+      header h1 .muted  { color: var(--mute); font-weight: 400; }
+      header .sub {
+        font-size: 0.72rem;
+        color: var(--sub);
+        letter-spacing: 0.04em;
+        margin-top: 0.5rem;
+      }
+      header .meta {
+        font-size: 0.58rem;
+        letter-spacing: 0.16em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-top: 0.5rem;
+      }
+      .crumb {
+        font-size: 0.6rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-top: 0.8rem;
+      }
+      .crumb a { color: var(--sub); text-decoration: none; transition: color .15s; }
+      .crumb a:hover { color: var(--blue); }
+      .crumb .arrow { color: var(--mute); margin: 0 .4rem; }
+
+      main {
+        position: relative;
+        z-index: 10;
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 1rem 1.5rem 4rem;
+      }
+
+      .section-label {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.62rem;
+        letter-spacing: 0.22em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin: 2.6rem 0 1rem;
+      }
+      .section-label::before {
+        content: ""; width: 20px; height: 1px; background: var(--line);
+      }
+      .section-label::after {
+        content: "";
+        flex: 1; height: 1px;
+        background: linear-gradient(90deg, var(--line), transparent);
+        animation: sweep 6s ease-in-out infinite;
+      }
+      .section-label .n { color: var(--green); }
+      @keyframes sweep {
+        0%, 100% { opacity: .55; }
+        50% { opacity: 1; }
+      }
+
+      /* ── panel ── */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1.4rem 1.6rem;
+        margin-bottom: 1rem;
+      }
+      .panel h2 {
+        font-size: 0.9rem;
+        letter-spacing: 0.04em;
+        color: var(--text);
+        font-weight: 500;
+        margin-bottom: 0.4rem;
+      }
+      .panel-sub {
+        font-size: 0.7rem;
+        color: var(--sub);
+        line-height: 1.75;
+        margin-bottom: 1.2rem;
+      }
+      .panel p {
+        font-size: 0.68rem;
+        color: var(--sub);
+        line-height: 1.75;
+        margin-bottom: 0.9rem;
+      }
+      .panel code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.92em;
+      }
+      .panel strong { color: var(--text); font-weight: 500; }
+
+      /* ── hero stats ── */
+      .stats-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+        overflow: hidden;
+        margin-bottom: 1rem;
+        position: relative;
+      }
+      .stats-strip::before {
+        content: "";
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 2px;
+        background: linear-gradient(180deg, var(--blue), var(--green), var(--amber), var(--magenta));
+      }
+      .hstat {
+        padding: 1rem 1.1rem;
+        border-right: 1px solid var(--line);
+      }
+      .hstat:last-child { border-right: none; }
+      .hstat-num {
+        font-size: 1.15rem;
+        color: var(--blue);
+        letter-spacing: -0.01em;
+      }
+      .hstat-num.green { color: var(--green); }
+      .hstat-num.amber { color: var(--amber); }
+      .hstat-num.magenta { color: var(--magenta); }
+      .hstat-num.red { color: var(--red); }
+      .hstat-num .unit {
+        color: var(--mute);
+        font-size: 0.66rem;
+        margin-left: 0.18rem;
+      }
+      .hstat-lbl {
+        font-size: 0.52rem;
+        color: var(--mute);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        margin-top: 0.35rem;
+      }
+      .hstat-note {
+        font-size: 0.58rem;
+        color: var(--sub);
+        line-height: 1.5;
+        margin-top: 0.25rem;
+      }
+
+      /* ── three-way architecture compare ── */
+      .compare-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.7rem;
+        margin-top: 0.8rem;
+      }
+      @media (max-width: 900px) { .compare-3 { grid-template-columns: 1fr; } }
+      .gen {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-top: 2px solid var(--blue);
+        border-radius: 6px;
+        padding: 1rem 1.1rem;
+        position: relative;
+      }
+      .gen.v25  { border-top-color: var(--green); }
+      .gen.v3   { border-top-color: var(--magenta); }
+      .gen.v25::after {
+        content: "CURRENT";
+        position: absolute;
+        top: 0.6rem; right: 0.8rem;
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        color: var(--green);
+        background: rgba(63, 185, 80, 0.12);
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+      }
+      .gen-name {
+        font-size: 0.82rem;
+        color: var(--blue);
+        margin-bottom: 0.2rem;
+      }
+      .gen.v25 .gen-name { color: var(--green); }
+      .gen.v3  .gen-name { color: var(--magenta); }
+      .gen-date {
+        font-size: 0.54rem;
+        letter-spacing: 0.16em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.9rem;
+      }
+      .gen-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 0.35rem 0;
+        border-bottom: 1px dashed var(--line-soft);
+        font-size: 0.6rem;
+      }
+      .gen-row:last-child { border-bottom: none; }
+      .gen-row .k {
+        color: var(--mute);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 0.54rem;
+      }
+      .gen-row .v {
+        color: var(--text);
+        text-align: right;
+        max-width: 62%;
+        line-height: 1.4;
+      }
+      .gen-row .v code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 0 3px;
+        border-radius: 2px;
+        font-size: 0.9em;
+      }
+
+      /* ── deltas list ── */
+      .deltas {
+        display: grid;
+        gap: 0.6rem;
+        margin-top: 0.9rem;
+      }
+      .delta-card {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--amber);
+        border-radius: 6px;
+        padding: 0.8rem 1.1rem;
+        font-size: 0.66rem;
+        color: var(--sub);
+        line-height: 1.7;
+      }
+      .delta-card.blue    { border-left-color: var(--blue); }
+      .delta-card.green   { border-left-color: var(--green); }
+      .delta-card.magenta { border-left-color: var(--magenta); }
+      .delta-card.red     { border-left-color: var(--red); }
+      .delta-card .lbl {
+        display: block;
+        font-size: 0.54rem;
+        letter-spacing: 0.2em;
+        color: var(--amber);
+        text-transform: uppercase;
+        margin-bottom: 0.3rem;
+      }
+      .delta-card.blue .lbl    { color: var(--blue); }
+      .delta-card.green .lbl   { color: var(--green); }
+      .delta-card.magenta .lbl { color: var(--magenta); }
+      .delta-card.red .lbl     { color: var(--red); }
+      .delta-card b { color: var(--text); font-weight: 500; }
+      .delta-card code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 1px 4px;
+        border-radius: 2px;
+        font-size: 0.92em;
+      }
+
+      /* ── code block ── */
+      pre.code {
+        background: #06080c;
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--amber);
+        border-radius: 5px;
+        padding: 0.9rem 1.1rem;
+        font-size: 0.62rem;
+        color: #d6deeb;
+        line-height: 1.7;
+        overflow-x: auto;
+        margin: 0.6rem 0;
+        letter-spacing: 0.01em;
+      }
+      pre.code .kw   { color: var(--magenta); }
+      pre.code .str  { color: #a5d6a7; }
+      pre.code .num  { color: #ffb86c; }
+      pre.code .com  { color: var(--mute); font-style: italic; }
+      pre.code .fn   { color: var(--blue); }
+      pre.code .var  { color: var(--teal); }
+
+      .code.bash { border-left-color: var(--green); }
+      .code.bash .p { color: var(--green); }
+
+      /* ── pipeline flow ── */
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 0.5rem;
+        margin-top: 0.8rem;
+      }
+      @media (max-width: 900px) {
+        .flow { grid-template-columns: repeat(2, 1fr); }
+      }
+      .step {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-top: 2px solid var(--blue);
+        border-radius: 5px;
+        padding: 0.8rem 0.9rem;
+        position: relative;
+      }
+      .step:nth-child(1) { border-top-color: var(--blue); }
+      .step:nth-child(2) { border-top-color: var(--magenta); }
+      .step:nth-child(3) { border-top-color: var(--amber); }
+      .step:nth-child(4) { border-top-color: var(--green); }
+      .step:nth-child(5) { border-top-color: var(--teal); }
+      .step:nth-child(6) { border-top-color: var(--red); }
+      .step-n {
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.3rem;
+      }
+      .step-t {
+        font-size: 0.72rem;
+        color: var(--text);
+        margin-bottom: 0.3rem;
+        letter-spacing: 0.03em;
+      }
+      .step-d {
+        font-size: 0.56rem;
+        color: var(--sub);
+        line-height: 1.55;
+      }
+
+      /* ── param matrix ── */
+      .matrix {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.6rem;
+        font-size: 0.62rem;
+      }
+      .matrix th, .matrix td {
+        text-align: left;
+        padding: 0.55rem 0.8rem;
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .matrix th {
+        font-size: 0.52rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+        font-weight: 500;
+        border-bottom: 1px solid var(--line);
+      }
+      .matrix td { color: var(--sub); vertical-align: top; line-height: 1.55; }
+      .matrix td .v { color: var(--text); }
+      .matrix td code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 0 4px;
+        border-radius: 2px;
+        font-size: 0.92em;
+      }
+      .matrix tr:hover td { background: rgba(88, 166, 255, 0.04); }
+      .matrix .tag-b {
+        display: inline-block;
+        font-size: 0.5rem;
+        letter-spacing: 0.14em;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: rgba(248, 81, 73, 0.12);
+        color: var(--red);
+        border: 1px solid rgba(248, 81, 73, 0.3);
+        margin-right: 0.3rem;
+      }
+      .matrix .tag-g {
+        display: inline-block;
+        font-size: 0.5rem;
+        letter-spacing: 0.14em;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: rgba(63, 185, 80, 0.12);
+        color: var(--green);
+        border: 1px solid rgba(63, 185, 80, 0.3);
+        margin-right: 0.3rem;
+      }
+
+      /* ── issue cards (encyclopedia) ── */
+      .issues {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.7rem;
+        margin-top: 0.6rem;
+      }
+      @media (max-width: 900px) { .issues { grid-template-columns: 1fr; } }
+      .issue {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--red);
+        border-radius: 6px;
+        padding: 0.9rem 1.1rem;
+      }
+      .issue.warn  { border-left-color: var(--amber); }
+      .issue.info  { border-left-color: var(--blue); }
+      .issue.fix   { border-left-color: var(--green); }
+      .issue-tag {
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--red);
+        margin-bottom: 0.3rem;
+      }
+      .issue.warn .issue-tag  { color: var(--amber); }
+      .issue.info .issue-tag  { color: var(--blue); }
+      .issue.fix  .issue-tag  { color: var(--green); }
+      .issue-title {
+        font-size: 0.7rem;
+        color: var(--text);
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.03em;
+        line-height: 1.45;
+      }
+      .issue-title code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 1px 4px;
+        border-radius: 2px;
+        font-size: 0.9em;
+      }
+      .issue-body {
+        font-size: 0.62rem;
+        color: var(--sub);
+        line-height: 1.72;
+      }
+      .issue-body code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 1px 4px;
+        border-radius: 2px;
+        font-size: 0.92em;
+      }
+      .issue-body b { color: var(--text); font-weight: 500; }
+      .issue-body .fix-label {
+        display: block;
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        color: var(--green);
+        text-transform: uppercase;
+        margin: 0.55rem 0 0.25rem;
+      }
+
+      /* ── before/after split ── */
+      .ba {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.7rem;
+        margin-top: 0.6rem;
+      }
+      @media (max-width: 720px) { .ba { grid-template-columns: 1fr; } }
+      .ba-card {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 1rem 1.1rem;
+      }
+      .ba-card.before { border-left: 2px solid var(--red); }
+      .ba-card.after  { border-left: 2px solid var(--green); }
+      .ba-head {
+        font-size: 0.52rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+      }
+      .ba-card.before .ba-head { color: var(--red); }
+      .ba-card.after  .ba-head { color: var(--green); }
+      .ba-metric {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.3rem 0;
+        border-bottom: 1px dashed var(--line-soft);
+        font-size: 0.62rem;
+      }
+      .ba-metric:last-child { border-bottom: none; }
+      .ba-metric .k { color: var(--mute); letter-spacing: 0.06em; }
+      .ba-metric .v { color: var(--text); font-variant-numeric: tabular-nums; }
+
+      /* ── checklist ── */
+      .checklist {
+        display: grid;
+        gap: 0.45rem;
+        margin-top: 0.6rem;
+      }
+      .check {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        gap: 0.6rem;
+        font-size: 0.64rem;
+        color: var(--sub);
+        line-height: 1.65;
+        padding: 0.55rem 0.8rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+      }
+      .check-mark {
+        width: 14px; height: 14px;
+        border-radius: 3px;
+        border: 1px solid var(--green);
+        background: rgba(63, 185, 80, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--green);
+        font-size: 0.58rem;
+        margin-top: 1px;
+      }
+      .check b { color: var(--text); font-weight: 500; }
+      .check code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 1px 4px;
+        border-radius: 2px;
+        font-size: 0.9em;
+      }
+
+      /* ── improvement table ── */
+      .improve {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.6rem;
+        font-size: 0.62rem;
+      }
+      .improve th, .improve td {
+        padding: 0.6rem 0.8rem;
+        border-bottom: 1px solid var(--line-soft);
+        text-align: left;
+        vertical-align: top;
+      }
+      .improve th {
+        font-size: 0.52rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--line);
+      }
+      .improve td { color: var(--sub); line-height: 1.5; }
+      .improve .wbefore { color: var(--red); font-variant-numeric: tabular-nums; }
+      .improve .wafter  { color: var(--green); font-variant-numeric: tabular-nums; }
+      .improve .wdelta  { color: var(--amber); font-size: 0.95em; }
+      .improve tr:hover td { background: rgba(63, 185, 80, 0.03); }
+
+      /* ── inline schema box ── */
+      .schema {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 0.8rem;
+        margin-top: 0.6rem;
+      }
+      @media (max-width: 720px) {
+        .schema { grid-template-columns: 1fr; }
+        .schema-arrow { display: none; }
+      }
+      .schema-box {
+        background: #06080c;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 0.7rem 0.9rem;
+      }
+      .schema-t {
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.4rem;
+      }
+      .schema-box pre {
+        font-size: 0.58rem;
+        color: #d6deeb;
+        line-height: 1.55;
+        overflow-x: auto;
+      }
+      .schema-box pre .k { color: var(--blue); }
+      .schema-box pre .v { color: var(--amber); }
+      .schema-arrow {
+        font-size: 0.9rem;
+        color: var(--mute);
+      }
+
+      /* ── reveal ── */
+      .reveal {
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity .55s ease, transform .55s cubic-bezier(.2,.7,.2,1);
+      }
+      .reveal.in { opacity: 1; transform: translateY(0); }
+      .reveal.delay-1 { transition-delay: .06s; }
+      .reveal.delay-2 { transition-delay: .12s; }
+      .reveal.delay-3 { transition-delay: .18s; }
+
+      /* ── hero connector banner ── */
+      .banner {
+        background: linear-gradient(90deg, rgba(88,166,255,0.08), rgba(63,185,80,0.08), rgba(210,153,34,0.08));
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1.3rem 1.6rem;
+        margin-top: 1rem;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1rem;
+        align-items: center;
+      }
+      @media (max-width: 720px) { .banner { grid-template-columns: 1fr; } }
+      .banner-title {
+        font-size: 0.88rem;
+        color: var(--text);
+        letter-spacing: 0.04em;
+      }
+      .banner-title em {
+        font-style: normal;
+        color: var(--amber);
+      }
+      .banner-sub {
+        font-size: 0.64rem;
+        color: var(--sub);
+        line-height: 1.7;
+        margin-top: 0.4rem;
+        max-width: 720px;
+      }
+      .banner-side {
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+        text-align: right;
+      }
+      .banner-side .big {
+        font-size: 1.2rem;
+        color: var(--green);
+        letter-spacing: 0;
+        display: block;
+      }
+
+      footer {
+        text-align: center;
+        font-size: 0.56rem;
+        color: var(--mute);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        padding: 2rem 1rem 3rem;
+        position: relative;
+        z-index: 10;
+      }
+      footer a { color: var(--sub); text-decoration: none; }
+      footer a:hover { color: var(--blue); }
+
+      /* ── two-column layout helper ── */
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8rem;
+      }
+      @media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="tag">// MAI 656 · Master Finetuning Guide · Qwen VL Family</div>
+      <h1>Finetuning Qwen VL <span class="muted">—</span> <span class="accent">Master Guide</span></h1>
+      <div class="sub">Qwen2-VL · 2.5-VL · 3-VL · Qwen3 · 3.5 · 3.6 · Omni · end-to-end LoRA / QLoRA playbook</div>
+      <div class="meta">grounded in run-01 & run-02 · one A10G · arabic HTR</div>
+      <div class="crumb">
+        <a href="../index.html">home</a>
+        <span class="arrow">›</span>
+        <a href="00-training_terms.html">terms</a>
+        <span class="arrow">›</span>
+        <a href="project_report.html">report</a>
+        <span class="arrow">›</span>
+        <a href="04-train_flow.html">train flow</a>
+        <span class="arrow">›</span>
+        <a href="05-evaluate_flow.html">eval flow</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ───────────────────────────── HERO BANNER ───────────────────────────── -->
+      <section class="banner reveal">
+        <div>
+          <div class="banner-title">
+            The <em>full</em> journey — env to inference, every scar kept visible.
+          </div>
+          <div class="banner-sub">
+            This is the guide I wish I had before touching Qwen2.5-VL. Architecture
+            differences between Qwen2-VL → Qwen2.5-VL → Qwen3-VL are laid out
+            side-by-side. Every bug, dep conflict, OOM, and decoder-loop we hit
+            is logged with the exact fix. Numbers come from the run-02 logs
+            (CER 29.9 → 1.28, latency 48&nbsp;s → 3.5&nbsp;s per sample).
+          </div>
+        </div>
+        <div class="banner-side">
+          run-02 best<br>
+          <span class="big">1.28</span>
+          CER (ckpt-1120)
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── STATS ───────────────────────────── -->
+      <div class="section-label"><span class="n">00</span> at a glance</div>
+      <section class="stats-strip reveal">
+        <div class="hstat">
+          <div class="hstat-num">7<span class="unit">B</span></div>
+          <div class="hstat-lbl">base model</div>
+          <div class="hstat-note">Qwen2.5-VL-7B-Instruct</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-num green">1.93<span class="unit">%</span></div>
+          <div class="hstat-lbl">params trained</div>
+          <div class="hstat-note">~159 M LoRA · 8.29 B frozen</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-num amber">24<span class="unit">GB</span></div>
+          <div class="hstat-lbl">vram · A10G</div>
+          <div class="hstat-note">4-bit NF4 + grad ckpt</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-num magenta">44<span class="unit">min</span></div>
+          <div class="hstat-lbl">train wall-clock</div>
+          <div class="hstat-note">1,680 steps · 3 epochs</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-num green">−91<span class="unit">%</span></div>
+          <div class="hstat-lbl">eval latency</div>
+          <div class="hstat-note">48 s → 4.4 s per sample</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-num">−95<span class="unit">%</span></div>
+          <div class="hstat-lbl">CER reduction</div>
+          <div class="hstat-note">29.9 → 1.28 (ckpt-1120)</div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── FAMILY TREE ───────────────────────────── -->
+      <div class="section-label"><span class="n">01</span> the qwen-vl family · side by side</div>
+      <section class="panel reveal">
+        <h2>Three generations, three different beasts</h2>
+        <p class="panel-sub">
+          The finetune we ran targets <b>Qwen2.5-VL-7B-Instruct</b>. Understanding
+          what changed between 2-VL, 2.5-VL, and 3-VL is how you decide which
+          model to target, how to set <code>target_modules</code>, which
+          <code>qwen_vl_utils</code> call shape to use, and what VRAM budget to plan.
+        </p>
+
+        <div class="compare-3">
+          <div class="gen">
+            <div class="gen-name">Qwen2-VL</div>
+            <div class="gen-date">Aug–Sep 2024 · arXiv 2409.12191</div>
+            <div class="gen-row"><span class="k">tiers</span><span class="v">2B · 7B · 72B (dense)</span></div>
+            <div class="gen-row"><span class="k">vision</span><span class="v">ViT ~675M · patch 14 · 2D-RoPE · naive dynamic res</span></div>
+            <div class="gen-row"><span class="k">connector</span><span class="v">MLP · 2×2 patch merge (4:1 tokens)</span></div>
+            <div class="gen-row"><span class="k">llm</span><span class="v">Qwen2 dense</span></div>
+            <div class="gen-row"><span class="k">position</span><span class="v">M-RoPE · 3 axes (T/H/W)</span></div>
+            <div class="gen-row"><span class="k">context</span><span class="v">32 K · 4–16 K visual tokens</span></div>
+            <div class="gen-row"><span class="k">video</span><span class="v">yes · fixed FPS</span></div>
+            <div class="gen-row"><span class="k">audio</span><span class="v">no</span></div>
+            <div class="gen-row"><span class="k">hf id</span><span class="v"><code>Qwen/Qwen2-VL-7B-Instruct</code></span></div>
+            <div class="gen-row"><span class="k">model class</span><span class="v"><code>Qwen2VLForConditionalGeneration</code></span></div>
+          </div>
+
+          <div class="gen v25">
+            <div class="gen-name">Qwen2.5-VL</div>
+            <div class="gen-date">Jan 2025 blog · arXiv 2502.13923</div>
+            <div class="gen-row"><span class="k">tiers</span><span class="v">3B · 7B · 32B · 72B (dense)</span></div>
+            <div class="gen-row"><span class="k">vision</span><span class="v">redesigned ViT · <b>window attn</b> (8×8) + 4 full · RMSNorm + SwiGLU</span></div>
+            <div class="gen-row"><span class="k">connector</span><span class="v">MLP merger · 2×2 · 4:1 (re-implemented on new ViT)</span></div>
+            <div class="gen-row"><span class="k">llm</span><span class="v">Qwen2.5 dense</span></div>
+            <div class="gen-row"><span class="k">position</span><span class="v">M-RoPE · <b>absolute timestamps</b> · native-pixel coords</span></div>
+            <div class="gen-row"><span class="k">context</span><span class="v">32 K native · YaRN extendable</span></div>
+            <div class="gen-row"><span class="k">video</span><span class="v">yes · <b>dynamic FPS</b> · 1 h+ long-video</span></div>
+            <div class="gen-row"><span class="k">audio</span><span class="v">no</span></div>
+            <div class="gen-row"><span class="k">hf id</span><span class="v"><code>Qwen/Qwen2.5-VL-7B-Instruct</code></span></div>
+            <div class="gen-row"><span class="k">model class</span><span class="v"><code>Qwen2_5_VLForConditionalGeneration</code></span></div>
+          </div>
+
+          <div class="gen v3">
+            <div class="gen-name">Qwen3-VL</div>
+            <div class="gen-date">Sep 2025 · arXiv 2511.21631</div>
+            <div class="gen-row"><span class="k">tiers</span><span class="v">2B · 4B · 8B · 32B (dense) · <b>30B-A3B</b> · <b>235B-A22B</b> (MoE)</span></div>
+            <div class="gen-row"><span class="k">vision</span><span class="v">ViT + <b>DeepStack</b> multi-level fusion</span></div>
+            <div class="gen-row"><span class="k">connector</span><span class="v">Multi-stage fusion of ViT depths into LLM stack</span></div>
+            <div class="gen-row"><span class="k">llm</span><span class="v">Qwen3 dense / Qwen3-MoE</span></div>
+            <div class="gen-row"><span class="k">position</span><span class="v"><b>Interleaved-MRoPE</b> · <b>Text-Timestamp Align</b></span></div>
+            <div class="gen-row"><span class="k">context</span><span class="v"><b>256 K native · ~1 M via YaRN</b></span></div>
+            <div class="gen-row"><span class="k">video</span><span class="v">yes · text-timestamp interleaved</span></div>
+            <div class="gen-row"><span class="k">audio</span><span class="v">no (handled by Qwen-Omni)</span></div>
+            <div class="gen-row"><span class="k">hf id</span><span class="v"><code>Qwen/Qwen3-VL-8B-Instruct</code></span></div>
+            <div class="gen-row"><span class="k">model class</span><span class="v"><code>Qwen3VLForConditionalGeneration</code></span></div>
+          </div>
+        </div>
+
+        <div class="section-label" style="margin-top: 2rem;"><span class="n">Δ</span> what changed · the fine print</div>
+
+        <div class="deltas">
+          <div class="delta-card blue">
+            <span class="lbl">2-VL → 2.5-VL · vision overhaul</span>
+            <b>Window attention (8×8)</b> replaces full attention in most ViT layers
+            (only <b>4 full-attention layers</b> retained) → throughput up, VRAM down on
+            high-res inputs. LayerNorm → <b>RMSNorm</b>, GELU → <b>SwiGLU</b> so the ViT and
+            LLM share primitives (FSDP / kernel fusion friendly).
+          </div>
+          <div class="delta-card green">
+            <span class="lbl">2-VL → 2.5-VL · temporal + spatial</span>
+            M-RoPE temporal IDs switch from frame-index to <b>absolute wall-clock timestamps</b>,
+            enabling dynamic FPS sampling and second-level event localisation.
+            Spatial coords (bboxes, points) now in <b>real image pixels</b> — no
+            normalisation — enabling structured JSON detection output.
+          </div>
+          <div class="delta-card magenta">
+            <span class="lbl">2.5-VL → 3-VL · position</span>
+            <b>Interleaved-MRoPE</b>: all three axes (T/H/W) get full-frequency
+            allocation instead of disjoint bands — fixes long-video positional blur.
+            Video timestamps represented as <b>text tokens interleaved with frames</b>,
+            replacing T-RoPE's implicit encoding.
+          </div>
+          <div class="delta-card amber">
+            <span class="lbl">2.5-VL → 3-VL · scale</span>
+            Context jumps from <b>32 K → 256 K native</b>, extendable to ~1 M via YaRN.
+            MoE tiers (<b>30B-A3B</b>, <b>235B-A22B</b>) introduced — first vision MoE.
+            Each tier ships an <b>-Instruct</b> and a reasoning-tuned <b>-Thinking</b> variant.
+            OCR coverage expanded from 19 → 32 languages.
+          </div>
+          <div class="delta-card red">
+            <span class="lbl">trap · processor signatures are not interchangeable</span>
+            <code>qwen_vl_utils.process_vision_info</code> evolved across generations.
+            Qwen2.5-VL adds <code>return_video_kwargs=True</code> for dynamic-FPS alignment;
+            Qwen3-VL adds timestamp-token bookkeeping. <b>Always use the model's own
+            AutoProcessor</b> — never reuse a processor from a different generation.
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── TEXT-LINE EVOLUTION ───────────────────────────── -->
+      <div class="section-label"><span class="n">02</span> beyond VL · the text-line evolution</div>
+      <section class="panel reveal">
+        <h2>Qwen2.5 → Qwen3 → Qwen3.5 → Qwen3.6 · what the same org shipped on the text side</h2>
+        <p class="panel-sub">
+          The VL family inherits its LLM backbone from the text line — each
+          architectural shift in Qwen3 / 3.5 / 3.6 shows up in the VL variants
+          a few weeks to months later. If you're targeting the <b>newest</b> model
+          your hardware can hold, this is the timeline that matters.
+        </p>
+
+        <div class="compare-3" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="gen">
+            <div class="gen-name">Qwen2.5</div>
+            <div class="gen-date">Sep 2024 · arXiv 2412.15115</div>
+            <div class="gen-row"><span class="k">dense</span><span class="v">0.5 · 1.5 · 3 · 7 · 14 · 32 · 72 B</span></div>
+            <div class="gen-row"><span class="k">moe</span><span class="v">Qwen2.5-MoE (shared experts)</span></div>
+            <div class="gen-row"><span class="k">ctx</span><span class="v">128 K (with YaRN)</span></div>
+            <div class="gen-row"><span class="k">attn</span><span class="v">softmax GQA · RoPE · RMSNorm</span></div>
+            <div class="gen-row"><span class="k">tokenizer</span><span class="v">~152 k · 29 langs</span></div>
+            <div class="gen-row"><span class="k">thinking</span><span class="v">—</span></div>
+            <div class="gen-row"><span class="k">vl sibling</span><span class="v">Qwen2.5-VL (Jan 2025)</span></div>
+          </div>
+
+          <div class="gen">
+            <div class="gen-name">Qwen3</div>
+            <div class="gen-date">Apr 29, 2025 · arXiv 2505.09388</div>
+            <div class="gen-row"><span class="k">dense</span><span class="v">0.6 · 1.7 · 4 · 8 · 14 · 32 B</span></div>
+            <div class="gen-row"><span class="k">moe</span><span class="v">30B-A3B · 235B-A22B · <b>no shared experts</b></span></div>
+            <div class="gen-row"><span class="k">ctx</span><span class="v">32 K (&lt;2 B) · <b>128 K</b> (≥4 B)</span></div>
+            <div class="gen-row"><span class="k">attn</span><span class="v">softmax GQA + <b>QK-Norm</b> · QKV bias removed</span></div>
+            <div class="gen-row"><span class="k">tokenizer</span><span class="v">~152 k · <b>119 langs</b> · 36 T pretrain</span></div>
+            <div class="gen-row"><span class="k">thinking</span><span class="v"><b>unified</b> · <code>/think</code> <code>/nothink</code> soft switches · budget knob</span></div>
+            <div class="gen-row"><span class="k">vl sibling</span><span class="v">Qwen3-VL (Sep 2025)</span></div>
+          </div>
+
+          <div class="gen v25">
+            <div class="gen-name">Qwen3.5</div>
+            <div class="gen-date">Feb 16, 2026 · natively VL</div>
+            <div class="gen-row"><span class="k">dense</span><span class="v">0.8 · 2 · 4 · 9 · 27 B · <b>all image-text-to-text</b></span></div>
+            <div class="gen-row"><span class="k">moe</span><span class="v">35B-A3B · 122B-A10B · <b>397B-A17B flagship</b></span></div>
+            <div class="gen-row"><span class="k">ctx</span><span class="v"><b>262 K native · ~1 M via YaRN</b></span></div>
+            <div class="gen-row"><span class="k">attn</span><span class="v"><b>Gated DeltaNet + sparse MoE hybrid</b> (linear attn + gating)</span></div>
+            <div class="gen-row"><span class="k">tokenizer</span><span class="v">~248 k · <b>201 langs</b></span></div>
+            <div class="gen-row"><span class="k">thinking</span><span class="v">on by default · <b>no soft switch</b> · use <code>enable_thinking=False</code></span></div>
+            <div class="gen-row"><span class="k">vl sibling</span><span class="v">collapsed · VL is the line itself</span></div>
+          </div>
+
+          <div class="gen v3">
+            <div class="gen-name">Qwen3.6</div>
+            <div class="gen-date">Apr 2026 · agentic coding focus</div>
+            <div class="gen-row"><span class="k">plus (closed)</span><span class="v">Apr 2 · 1 M-token ctx</span></div>
+            <div class="gen-row"><span class="k">open (moe)</span><span class="v"><b>Qwen3.6-35B-A3B</b> · ~Apr 15 · natively multimodal</span></div>
+            <div class="gen-row"><span class="k">ctx</span><span class="v">1 M (Plus) · [UNVERIFIED for 35B-A3B]</span></div>
+            <div class="gen-row"><span class="k">attn</span><span class="v">Gated DeltaNet + MoE lineage · tuned for agents</span></div>
+            <div class="gen-row"><span class="k">focus</span><span class="v"><b>agentic coding</b> · tool-use · competes with Gemma 4 31B</span></div>
+            <div class="gen-row"><span class="k">thinking</span><span class="v">yes · both modes</span></div>
+            <div class="gen-row"><span class="k">tech report</span><span class="v">[UNVERIFIED · not yet published]</span></div>
+          </div>
+        </div>
+
+        <div class="deltas">
+          <div class="delta-card blue">
+            <span class="lbl">2.5 → 3 · attention + MoE rework</span>
+            <b>QK-Norm</b> added to attention for training stability.
+            <b>QKV bias removed</b> (2.5 had bias). Unified <b>thinking/non-thinking
+            in a single checkpoint</b> — toggle via <code>enable_thinking</code>
+            flag or <code>/think</code> / <code>/nothink</code> soft tokens. MoE
+            drops shared experts and adds global-batch load-balancing loss.
+            Pretraining scales to ~36 T tokens across 119 languages.
+          </div>
+          <div class="delta-card magenta">
+            <span class="lbl">3 → 3.5 · two paradigm shifts at once</span>
+            (1) <b>Natively multimodal by default</b> — every Qwen3.5 checkpoint
+            is <code>image-text-to-text</code>; the "text-only vs VL" split
+            from earlier generations is gone. (2) Attention moves to a
+            <b>Gated-DeltaNet + softmax-attention hybrid</b>, pattern:
+            <code>3 × (DeltaNet + FFN) → 1 × (GatedAttn + FFN)</code>, repeated.
+            This is linear-attention territory → 256 K context becomes
+            tractable on commodity hardware.
+          </div>
+          <div class="delta-card amber">
+            <span class="lbl">3.5 → 3.6 · agentic tuning</span>
+            Architecture lineage preserved. Main differences are training-data
+            composition (agentic coding trajectories, tool-use traces) and
+            post-training RL on million-agent environments.
+            <b>Qwen3.6-35B-A3B</b> is the open-weight flagship so far; full
+            arch specs <b>[UNVERIFIED · arXiv tech report not yet out]</b>.
+          </div>
+          <div class="delta-card red">
+            <span class="lbl">trap · Qwen3.5 QLoRA is broken</span>
+            Unsloth explicitly warns that 4-bit QLoRA is <b>unstable on
+            Qwen3.5</b> because the Gated-DeltaNet hybrid layers don't round-trip
+            cleanly through bnb 4-bit. Use <b>bf16 LoRA or 8-bit</b>. Hard
+            constraint on 8 GB GPUs: you can't 4-bit-squeeze Qwen3.5-4B onto
+            an RTX 4060.
+          </div>
+          <div class="delta-card green">
+            <span class="lbl">our project's 9B scaffold</span>
+            Notebooks 08/09 (<code>notebook/08_finetuning_qwen3.5-9b.ipynb</code>)
+            target <code>Qwen/Qwen3.5-9B</code> — that's a real HF release, 10 B
+            params, BF16 weights ~19.3 GB, 6 M+ monthly downloads.
+            Adapter pipeline identical to the 2.5-VL track; what differs is
+            dep versions (needs <code>transformers ≥ 4.57</code>),
+            <code>trust_remote_code=True</code> on older stacks, and the QLoRA
+            caveat above.
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── NATIVE MULTIMODAL / OMNI ───────────────────────────── -->
+      <div class="section-label"><span class="n">03</span> native multimodality · the omni family</div>
+      <section class="panel reveal">
+        <h2>Projector bottleneck → shared tokenizer → Thinker-Talker</h2>
+        <p class="panel-sub">
+          "Native multimodality" is not just better finetune data. It means the
+          LLM backbone sees <code>&lt;text, image, audio, video&gt;</code> interleaved
+          tokens <b>from pretraining</b>, in a shared tokenizer with first-class
+          audio/vision special tokens, under a unified positional embedding
+          (TMRoPE) that aligns time across modalities.
+        </p>
+
+        <div class="compare-3">
+          <div class="gen">
+            <div class="gen-name">Qwen2.5-VL · late-fusion</div>
+            <div class="gen-date">the model we trained</div>
+            <div class="gen-row"><span class="k">pipeline</span><span class="v">pixels → ViT → <b>MLP projector</b> → LLM tokens</span></div>
+            <div class="gen-row"><span class="k">bottleneck</span><span class="v"><b>two-layer MLP</b> · all cross-modal info flows through it</span></div>
+            <div class="gen-row"><span class="k">training</span><span class="v">ViT + LLM pretrained separately · then aligned</span></div>
+            <div class="gen-row"><span class="k">modalities</span><span class="v">text · image · video (frames)</span></div>
+            <div class="gen-row"><span class="k">audio</span><span class="v"><b>no</b></span></div>
+            <div class="gen-row"><span class="k">speech out</span><span class="v"><b>no</b></span></div>
+            <div class="gen-row"><span class="k">output</span><span class="v">text only</span></div>
+          </div>
+
+          <div class="gen v25">
+            <div class="gen-name">Qwen2.5-Omni · Thinker-Talker</div>
+            <div class="gen-date">Mar 26, 2025 · arXiv 2503.20215 · dense 3 B / 7 B</div>
+            <div class="gen-row"><span class="k">thinker</span><span class="v">LLM consumes <b>text + image + audio + video</b> as unified stream</span></div>
+            <div class="gen-row"><span class="k">talker</span><span class="v">dual-track AR · reads <b>Thinker hidden states</b> · emits audio codec tokens</span></div>
+            <div class="gen-row"><span class="k">position</span><span class="v"><b>TMRoPE</b> · time aligned across video + audio sample clocks</span></div>
+            <div class="gen-row"><span class="k">modalities in</span><span class="v">text · image · audio · video</span></div>
+            <div class="gen-row"><span class="k">modalities out</span><span class="v">text <b>+ streaming speech</b></span></div>
+            <div class="gen-row"><span class="k">streaming</span><span class="v">block-wise audio + video — long-form without full buffering</span></div>
+            <div class="gen-row"><span class="k">claim</span><span class="v">"no modality tax" — matches VL / audio-only baselines at same size</span></div>
+          </div>
+
+          <div class="gen v3">
+            <div class="gen-name">Qwen3-Omni · MoE Thinker-Talker</div>
+            <div class="gen-date">Sep 22, 2025 · arXiv 2509.17765 · 30B-A3B</div>
+            <div class="gen-row"><span class="k">variants</span><span class="v">Instruct · <b>Thinking</b> · <b>Captioner</b> (low-hallucination audio)</span></div>
+            <div class="gen-row"><span class="k">thinker + talker</span><span class="v"><b>both MoE</b> (2.5 was dense)</span></div>
+            <div class="gen-row"><span class="k">pretrain</span><span class="v"><b>AuT</b> · audio-understanding-text joint pretraining · no staged alignment</span></div>
+            <div class="gen-row"><span class="k">latency</span><span class="v"><b>multi-codebook audio</b> · drops first-packet delay</span></div>
+            <div class="gen-row"><span class="k">coverage</span><span class="v">text 119 langs · speech in 19 · speech out 10</span></div>
+            <div class="gen-row"><span class="k">modalities in/out</span><span class="v">any-to-any (text/image/video/audio → text/speech)</span></div>
+            <div class="gen-row"><span class="k">small tiers</span><span class="v"><b>none yet</b> · 30B-A3B is the smallest published</span></div>
+          </div>
+        </div>
+
+        <p style="margin-top: 1.3rem;">
+          <b>Why this matters for a finetuner:</b> if your task touches audio
+          (speech transcription, audio-visual Q&A, spoken captioning), the VL
+          family is the wrong tool — there is no audio path. Use
+          <b>Qwen2.5-Omni-7B</b> for small / dense workloads or
+          <b>Qwen3-Omni-30B-A3B</b> for the MoE tier. For pure-text tasks use
+          Qwen3 / Qwen3.5 dense. For pure-VL-without-audio (this project's
+          case), 2.5-VL / 3-VL / 3.5 are the right targets.
+        </p>
+
+        <h2 style="margin-top: 1.6rem;">The native-multimodal diagram</h2>
+        <svg viewBox="0 0 960 340" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: auto; display: block; margin-top: 0.8rem;">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#58a6ff" />
+            </marker>
+            <marker id="arrG" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#3fb950" />
+            </marker>
+          </defs>
+
+          <!-- Top rail: VL (late fusion) -->
+          <text x="30" y="34" fill="#8b949e" font-family="Fira Code" font-size="10" letter-spacing="0.14em">QWEN2.5-VL · LATE FUSION</text>
+          <rect x="30"  y="50" width="90"  height="40" fill="none" stroke="#bc8cff" stroke-width="1"/>
+          <text x="75" y="75" fill="#bc8cff" font-family="Fira Code" font-size="10" text-anchor="middle">pixels</text>
+          <rect x="150" y="50" width="90"  height="40" fill="none" stroke="#58a6ff" stroke-width="1"/>
+          <text x="195" y="75" fill="#58a6ff" font-family="Fira Code" font-size="10" text-anchor="middle">ViT</text>
+          <rect x="270" y="50" width="120" height="40" fill="none" stroke="#d29922" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <text x="330" y="68" fill="#d29922" font-family="Fira Code" font-size="9" text-anchor="middle">MLP projector</text>
+          <text x="330" y="82" fill="#d29922" font-family="Fira Code" font-size="8" text-anchor="middle" letter-spacing="0.1em">BOTTLENECK</text>
+          <rect x="420" y="50" width="120" height="40" fill="none" stroke="#3fb950" stroke-width="1"/>
+          <text x="480" y="75" fill="#3fb950" font-family="Fira Code" font-size="10" text-anchor="middle">LLM (frozen)</text>
+          <rect x="570" y="50" width="80" height="40" fill="none" stroke="#c9d1d9" stroke-width="1"/>
+          <text x="610" y="75" fill="#c9d1d9" font-family="Fira Code" font-size="10" text-anchor="middle">text</text>
+
+          <line x1="120" y1="70" x2="148" y2="70" stroke="#58a6ff" stroke-width="1" marker-end="url(#arr)"/>
+          <line x1="240" y1="70" x2="268" y2="70" stroke="#58a6ff" stroke-width="1" marker-end="url(#arr)"/>
+          <line x1="390" y1="70" x2="418" y2="70" stroke="#58a6ff" stroke-width="1" marker-end="url(#arr)"/>
+          <line x1="540" y1="70" x2="568" y2="70" stroke="#58a6ff" stroke-width="1" marker-end="url(#arr)"/>
+
+          <!-- Divider -->
+          <line x1="30" y1="130" x2="920" y2="130" stroke="#30363d" stroke-width="0.5" stroke-dasharray="4 6"/>
+
+          <!-- Bottom rail: Omni (native multimodal) -->
+          <text x="30" y="160" fill="#8b949e" font-family="Fira Code" font-size="10" letter-spacing="0.14em">QWEN3-OMNI · NATIVE MULTIMODAL</text>
+
+          <!-- inputs -->
+          <rect x="30"  y="180" width="70" height="24" fill="none" stroke="#bc8cff" stroke-width="1"/>
+          <text x="65"  y="196" fill="#bc8cff" font-family="Fira Code" font-size="9" text-anchor="middle">image</text>
+          <rect x="30"  y="212" width="70" height="24" fill="none" stroke="#bc8cff" stroke-width="1"/>
+          <text x="65"  y="228" fill="#bc8cff" font-family="Fira Code" font-size="9" text-anchor="middle">video</text>
+          <rect x="30"  y="244" width="70" height="24" fill="none" stroke="#ff7b72" stroke-width="1"/>
+          <text x="65"  y="260" fill="#ff7b72" font-family="Fira Code" font-size="9" text-anchor="middle">audio</text>
+          <rect x="30"  y="276" width="70" height="24" fill="none" stroke="#c9d1d9" stroke-width="1"/>
+          <text x="65"  y="292" fill="#c9d1d9" font-family="Fira Code" font-size="9" text-anchor="middle">text</text>
+
+          <!-- shared tokenizer -->
+          <rect x="140" y="205" width="130" height="90" fill="none" stroke="#d29922" stroke-width="1.5"/>
+          <text x="205" y="235" fill="#d29922" font-family="Fira Code" font-size="10" text-anchor="middle">shared</text>
+          <text x="205" y="250" fill="#d29922" font-family="Fira Code" font-size="10" text-anchor="middle">tokenizer</text>
+          <text x="205" y="268" fill="#8b949e" font-family="Fira Code" font-size="8" text-anchor="middle">TMRoPE time-aligned</text>
+          <text x="205" y="282" fill="#8b949e" font-family="Fira Code" font-size="8" text-anchor="middle">&lt;|audio_pad|&gt; tokens</text>
+
+          <!-- thinker (MoE) -->
+          <rect x="310" y="185" width="150" height="70" fill="none" stroke="#3fb950" stroke-width="1.5"/>
+          <text x="385" y="210" fill="#3fb950" font-family="Fira Code" font-size="11" text-anchor="middle">Thinker · MoE</text>
+          <text x="385" y="228" fill="#8b949e" font-family="Fira Code" font-size="8" text-anchor="middle">30B total / 3B active</text>
+          <text x="385" y="244" fill="#8b949e" font-family="Fira Code" font-size="8" text-anchor="middle">trained on interleaved streams</text>
+
+          <!-- talker -->
+          <rect x="310" y="275" width="150" height="40" fill="none" stroke="#39c5cf" stroke-width="1.5"/>
+          <text x="385" y="292" fill="#39c5cf" font-family="Fira Code" font-size="10" text-anchor="middle">Talker · MoE</text>
+          <text x="385" y="307" fill="#8b949e" font-family="Fira Code" font-size="8" text-anchor="middle">reads hidden states (not text)</text>
+
+          <!-- outputs -->
+          <rect x="510" y="195" width="80" height="40" fill="none" stroke="#c9d1d9" stroke-width="1"/>
+          <text x="550" y="218" fill="#c9d1d9" font-family="Fira Code" font-size="10" text-anchor="middle">text out</text>
+          <rect x="510" y="265" width="80" height="40" fill="none" stroke="#ff7b72" stroke-width="1"/>
+          <text x="550" y="282" fill="#ff7b72" font-family="Fira Code" font-size="10" text-anchor="middle">speech</text>
+          <text x="550" y="295" fill="#8b949e" font-family="Fira Code" font-size="8" text-anchor="middle">multi-codebook</text>
+
+          <!-- inputs to tokenizer -->
+          <line x1="100" y1="192" x2="138" y2="230" stroke="#bc8cff" stroke-width="1"/>
+          <line x1="100" y1="224" x2="138" y2="240" stroke="#bc8cff" stroke-width="1"/>
+          <line x1="100" y1="256" x2="138" y2="260" stroke="#ff7b72" stroke-width="1"/>
+          <line x1="100" y1="288" x2="138" y2="275" stroke="#c9d1d9" stroke-width="1"/>
+
+          <!-- tokenizer to thinker -->
+          <line x1="270" y1="230" x2="308" y2="215" stroke="#3fb950" stroke-width="1" marker-end="url(#arrG)"/>
+          <line x1="270" y1="265" x2="308" y2="290" stroke="#39c5cf" stroke-width="1" marker-end="url(#arrG)"/>
+
+          <!-- thinker hidden-state to talker -->
+          <line x1="385" y1="255" x2="385" y2="273" stroke="#39c5cf" stroke-width="1" stroke-dasharray="2 3" marker-end="url(#arrG)"/>
+          <text x="400" y="268" fill="#39c5cf" font-family="Fira Code" font-size="8">hidden</text>
+
+          <!-- thinker to text-out -->
+          <line x1="460" y1="215" x2="508" y2="215" stroke="#3fb950" stroke-width="1" marker-end="url(#arrG)"/>
+          <!-- talker to speech-out -->
+          <line x1="460" y1="295" x2="508" y2="285" stroke="#39c5cf" stroke-width="1" marker-end="url(#arrG)"/>
+        </svg>
+      </section>
+
+      <!-- ───────────────────────────── TRAINING FORMAT ROSETTA ───────────────────────────── -->
+      <div class="section-label"><span class="n">04</span> training input format · the rosetta stone</div>
+      <section class="panel reveal">
+        <h2>Same JSON skeleton, different token expansions, one trap per generation</h2>
+        <p class="panel-sub">
+          Every Qwen VL / Omni processor accepts a ChatML message list. The
+          JSON shape you pass is near-identical — but what the processor
+          expands under the hood differs. Mismatches are silent: the wrong
+          processor version of the same generation will drop images, audio,
+          or timestamps without error.
+        </p>
+
+        <div class="two">
+          <div class="schema-box">
+            <div class="schema-t">Qwen2-VL · input json</div>
+<pre>{
+  <span class="k">"role"</span>: <span class="v">"user"</span>,
+  <span class="k">"content"</span>: [
+    {<span class="k">"type"</span>: <span class="v">"image"</span>,
+     <span class="k">"image"</span>: <span class="v">"file:///img.jpg"</span>},
+    {<span class="k">"type"</span>: <span class="v">"text"</span>,
+     <span class="k">"text"</span>: <span class="v">"Describe."</span>}
+  ]
+}</pre>
+          </div>
+          <div class="schema-box">
+            <div class="schema-t">Qwen2-VL · token expansion</div>
+<pre><span class="k">&lt;|im_start|&gt;</span>user
+<span class="v">&lt;|vision_start|&gt;</span>
+<span class="v">&lt;|image_pad|&gt;</span>…<span class="v">&lt;|image_pad|&gt;</span>
+<span class="v">&lt;|vision_end|&gt;</span>Describe.<span class="k">&lt;|im_end|&gt;</span></pre>
+          </div>
+        </div>
+
+        <div class="two" style="margin-top: 0.8rem;">
+          <div class="schema-box">
+            <div class="schema-t">Qwen2.5-VL · input json (same shape)</div>
+<pre>{
+  <span class="k">"role"</span>: <span class="v">"user"</span>,
+  <span class="k">"content"</span>: [
+    {<span class="k">"type"</span>: <span class="v">"image"</span>,
+     <span class="k">"image"</span>: <span class="v">"file:///img.jpg"</span>},
+    {<span class="k">"type"</span>: <span class="v">"text"</span>,
+     <span class="k">"text"</span>: <span class="v">"Describe."</span>}
+  ]
+}</pre>
+          </div>
+          <div class="schema-box">
+            <div class="schema-t">Qwen2.5-VL · adds T-RoPE for video</div>
+<pre><span class="k">&lt;|im_start|&gt;</span>user
+<span class="v">&lt;|vision_start|&gt;</span><span class="v">&lt;|video_pad|&gt;</span>…<span class="v">&lt;|vision_end|&gt;</span>
+<span class="com"># absolute-time RoPE · not text</span>
+<span class="com"># fps + dynamic FPS baked into processor</span>
+<span class="com"># call process_vision_info(msgs,</span>
+<span class="com">#   return_video_kwargs=True) !</span></pre>
+          </div>
+        </div>
+
+        <div class="two" style="margin-top: 0.8rem;">
+          <div class="schema-box">
+            <div class="schema-t">Qwen3-VL · input json (same)</div>
+<pre>{
+  <span class="k">"role"</span>: <span class="v">"user"</span>,
+  <span class="k">"content"</span>: [
+    {<span class="k">"type"</span>: <span class="v">"video"</span>,
+     <span class="k">"video"</span>: <span class="v">"file:///c.mp4"</span>},
+    {<span class="k">"type"</span>: <span class="v">"text"</span>,
+     <span class="k">"text"</span>: <span class="v">"At 2s, what happens?"</span>}
+  ]
+}</pre>
+          </div>
+          <div class="schema-box">
+            <div class="schema-t">Qwen3-VL · text-timestamp align + DeepStack</div>
+<pre><span class="v">&lt;|vision_start|&gt;</span>
+  <span class="k">&lt;0.00&gt;</span><span class="v">&lt;|video_pad|&gt;</span>
+  <span class="k">&lt;1.00&gt;</span><span class="v">&lt;|video_pad|&gt;</span>
+  <span class="k">&lt;2.00&gt;</span><span class="v">&lt;|video_pad|&gt;</span> …
+<span class="v">&lt;|vision_end|&gt;</span>
+<span class="com"># timestamps emitted as TEXT tokens</span>
+<span class="com"># · interleaved-MRoPE across T/H/W</span>
+<span class="com"># · DeepStack ViT features (multi-level)</span></pre>
+          </div>
+        </div>
+
+        <div class="two" style="margin-top: 0.8rem;">
+          <div class="schema-box">
+            <div class="schema-t">Qwen3-Omni · input json (adds audio)</div>
+<pre>{
+  <span class="k">"role"</span>: <span class="v">"user"</span>,
+  <span class="k">"content"</span>: [
+    {<span class="k">"type"</span>: <span class="v">"image"</span>,
+     <span class="k">"image"</span>: <span class="v">"scene.jpg"</span>},
+    {<span class="k">"type"</span>: <span class="v">"audio"</span>,
+     <span class="k">"audio"</span>: <span class="v">"cough.wav"</span>},
+    {<span class="k">"type"</span>: <span class="v">"video"</span>,
+     <span class="k">"video"</span>: <span class="v">"draw.mp4"</span>},
+    {<span class="k">"type"</span>: <span class="v">"text"</span>,
+     <span class="k">"text"</span>: <span class="v">"See &amp; hear?"</span>}
+  ]
+}</pre>
+          </div>
+          <div class="schema-box">
+            <div class="schema-t">Qwen3-Omni · adds audio_* tokens</div>
+<pre><span class="k">&lt;|im_start|&gt;</span>user
+<span class="v">&lt;|vision_start|&gt;</span><span class="v">&lt;|image_pad|&gt;</span>…<span class="v">&lt;|vision_end|&gt;</span>
+<span class="v">&lt;|audio_start|&gt;</span><span class="v">&lt;|audio_pad|&gt;</span>…<span class="v">&lt;|audio_end|&gt;</span>
+<span class="v">&lt;|vision_start|&gt;</span><span class="v">&lt;|video_pad|&gt;</span>…<span class="v">&lt;|vision_end|&gt;</span>
+See &amp; hear?<span class="k">&lt;|im_end|&gt;</span>
+<span class="com"># new: audio_start/end/pad tokens</span>
+<span class="com"># TMRoPE aligns audio + video time</span>
+<span class="com"># use_audio_in_video=True must be</span>
+<span class="com"># consistent across multi-turn chat</span></pre>
+          </div>
+        </div>
+
+        <h2 style="margin-top: 1.6rem;">Special-token delta · at a glance</h2>
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>token / concept</th>
+              <th>Qwen2-VL</th>
+              <th>Qwen2.5-VL</th>
+              <th>Qwen3-VL</th>
+              <th>Qwen3-Omni</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>&lt;|im_start|&gt;</code> / <code>&lt;|im_end|&gt;</code></td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+            <tr><td><code>&lt;|vision_start|&gt;</code> / <code>&lt;|vision_end|&gt;</code></td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+            <tr><td><code>&lt;|image_pad|&gt;</code></td><td>yes</td><td>yes</td><td>yes · DeepStack-fused</td><td>yes</td></tr>
+            <tr><td><code>&lt;|video_pad|&gt;</code></td><td>yes</td><td>yes · dynamic FPS</td><td>yes · text timestamps interleaved</td><td>yes · TMRoPE-aligned</td></tr>
+            <tr><td>video time encoding</td><td>positional (naive)</td><td><b>T-RoPE</b> (absolute-time positional)</td><td><b>text-timestamp</b> (visible in stream)</td><td><b>TMRoPE</b> (time = shared axis w/ audio)</td></tr>
+            <tr><td><code>&lt;|audio_start|&gt;</code> / <code>&lt;|audio_end|&gt;</code></td><td class="v">—</td><td class="v">—</td><td class="v">—</td><td class="v"><b>yes</b></td></tr>
+            <tr><td><code>&lt;|audio_pad|&gt;</code></td><td class="v">—</td><td class="v">—</td><td class="v">—</td><td class="v"><b>yes</b></td></tr>
+            <tr><td>speech-out codec tokens</td><td class="v">—</td><td class="v">—</td><td class="v">—</td><td class="v"><b>multi-codebook · via Talker</b></td></tr>
+            <tr><td>processor call</td><td><code>process_vision_info(msgs)</code></td><td><code>process_vision_info(msgs, return_video_kwargs=True)</code></td><td><code>process_vision_info(msgs, return_video_kwargs=True)</code> + timestamp bookkeeping</td><td><code>process_mm_info(msgs, use_audio_in_video=True)</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="deltas">
+          <div class="delta-card red">
+            <span class="lbl">trap · cross-generation processor reuse</span>
+            A processor loaded from a Qwen2.5-VL checkpoint will <b>silently
+            drop</b> Qwen3-VL timestamp tokens and cannot handle Qwen3-Omni
+            audio pads at all. <b>Always call <code>AutoProcessor.from_pretrained(<i>same</i> model_id)</code></b>
+            as the model. Do not pickle a processor from one generation and
+            load it for another.
+          </div>
+          <div class="delta-card blue">
+            <span class="lbl">trap · OpenAI image_url vs Qwen image</span>
+            OpenAI-style <code>{"type":"image_url","image_url":{"url":"data:..."}}</code>
+            is <b>rejected</b> by <code>process_vision_info</code>. Either convert
+            to Qwen-native <code>{"type":"image","image":&lt;pil|path|url&gt;}</code>
+            before the call, or decode the data-URL yourself and feed PIL images
+            directly to the processor (this is what our project does — see §09).
+          </div>
+          <div class="delta-card amber">
+            <span class="lbl">trap · Qwen3-Omni audio-in-video consistency</span>
+            <code>use_audio_in_video=True</code> must be set the same way for
+            <b>every turn</b> of a multi-round conversation. Flipping it mid-chat
+            breaks TMRoPE time alignment silently (the model still generates,
+            the output is just wrong).
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── FINETUNE IMPLICATIONS ───────────────────────────── -->
+      <div class="section-label"><span class="n">05</span> finetuning implications of the family tree</div>
+      <section class="panel reveal">
+        <h2>What the architecture forces you to change</h2>
+        <p class="panel-sub">
+          The naming of linear layers, chat-template tokens, quantisation rules,
+          and which components to freeze are <b>shared</b> across 2-VL / 2.5-VL / 3-VL
+          in broad strokes — but the landmines move. Everything below is the
+          cross-family rule-of-thumb, with per-generation notes where they diverge.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>decision</th>
+              <th>Qwen2-VL</th>
+              <th>Qwen2.5-VL</th>
+              <th>Qwen3-VL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="v">LoRA <code>target_modules</code></span></td>
+              <td><code>q_proj k_proj v_proj o_proj gate_proj up_proj down_proj</code></td>
+              <td>same</td>
+              <td>same (add MoE router caveat)</td>
+            </tr>
+            <tr>
+              <td><span class="v">vision tower</span></td>
+              <td>freeze default</td>
+              <td>freeze default</td>
+              <td>freeze default; DeepStack indices need explicit skip on 4-bit</td>
+            </tr>
+            <tr>
+              <td><span class="v">chat tokens</span></td>
+              <td><code>&lt;|im_start|&gt; &lt;|vision_start|&gt; &lt;|image_pad|&gt;</code></td>
+              <td>same</td>
+              <td>same + interleaved timestamp tokens (emitted by processor)</td>
+            </tr>
+            <tr>
+              <td><span class="v">QLoRA + vision train</span></td>
+              <td class="v"><span class="tag-b">unsupported</span>must be <code>--bits 16</code></td>
+              <td class="v"><span class="tag-b">unsupported</span>same rule</td>
+              <td class="v"><span class="tag-b">unsupported</span>same rule</td>
+            </tr>
+            <tr>
+              <td><span class="v">flash-attn 2</span></td>
+              <td><span class="tag-g">ok</span></td>
+              <td><span class="tag-g">ok</span></td>
+              <td><span class="tag-g">ok</span></td>
+            </tr>
+            <tr>
+              <td><span class="v">dtype</span></td>
+              <td>bf16 native · fp16 flaky on ViT softmax</td>
+              <td>same</td>
+              <td>same</td>
+            </tr>
+            <tr>
+              <td><span class="v">bnb 4-bit</span></td>
+              <td>LLM only · skip <code>visual</code></td>
+              <td>LLM only · skip <code>visual</code></td>
+              <td>LLM only · skip <code>visual</code> + <code>deepstack_visual_indexes</code></td>
+            </tr>
+            <tr>
+              <td><span class="v">YaRN + grounding</span></td>
+              <td>—</td>
+              <td class="v"><span class="tag-b">avoid</span>distorts M-RoPE temporal</td>
+              <td>handled by Interleaved-MRoPE; fewer caveats</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p style="margin-top: 1.2rem;">
+          <b>Why the vision tower is frozen by default:</b> PEFT only attaches LoRA
+          to <code>nn.Linear</code>/<code>nn.Embedding</code> leaves; the vision tower
+          modules (<code>attn.qkv</code>, <code>attn.proj</code>, <code>mlp.fc1</code>,
+          <code>mlp.fc2</code> in 2-VL / 2.5-VL) use different names than the LLM —
+          passing the whole model to <code>get_peft_model</code> with the LLM
+          target list leaves the ViT correctly untouched. If you need vision-side
+          LoRA, opt in explicitly (e.g. <code>--vision_lora</code> in the
+          2U1/Qwen-VL-Series-Finetune repo) and drop to bf16.
+        </p>
+      </section>
+
+      <!-- ───────────────────────────── ENVIRONMENT ───────────────────────────── -->
+      <div class="section-label"><span class="n">06</span> environment · the dependency minefield</div>
+      <section class="panel reveal">
+        <h2>Pin ranges, not exact versions</h2>
+        <p class="panel-sub">
+          We shipped with <code>transformers==4.47.0</code>, <code>accelerate==1.2.1</code>,
+          <code>bitsandbytes==0.45.0</code>. All three broke something on day one.
+          The working pins below were landed after four concrete failures (see
+          §08 issue encyclopedia).
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>package</th>
+              <th>initial pin</th>
+              <th>working pin</th>
+              <th>what broke</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>transformers</code></td>
+              <td class="wbefore">==4.47.0</td>
+              <td class="wafter">&gt;=4.52.0 · lab on 5.5.4</td>
+              <td><code>Qwen2_5_VLForConditionalGeneration</code> doesn't exist until 4.52</td>
+            </tr>
+            <tr>
+              <td><code>accelerate</code></td>
+              <td class="wbefore">==1.2.1</td>
+              <td class="wafter">&gt;=1.3.0</td>
+              <td><code>unwrap_model() got unexpected kwarg 'keep_torch_compile'</code></td>
+            </tr>
+            <tr>
+              <td><code>bitsandbytes</code></td>
+              <td class="wbefore">==0.45.0</td>
+              <td class="wafter">&gt;=0.46.1 · lab on 0.49.2</td>
+              <td><code>Using bnb 4-bit requires bitsandbytes&gt;=0.46.1</code></td>
+            </tr>
+            <tr>
+              <td><code>peft</code></td>
+              <td class="wafter">==0.14.0</td>
+              <td class="wafter">==0.14.0</td>
+              <td>held · only linter wants <code>prepare_model_for_kbit_training</code> from <code>peft.utils.other</code></td>
+            </tr>
+            <tr>
+              <td><code>torchvision</code></td>
+              <td class="wbefore">missing</td>
+              <td class="wafter">installed</td>
+              <td>Qwen2.5-VL processor's <code>Qwen2VLVideoProcessor</code> imports torchvision even for image-only flow</td>
+            </tr>
+            <tr>
+              <td><code>qwen-vl-utils</code></td>
+              <td class="wafter">latest</td>
+              <td class="wafter">latest (partial bypass)</td>
+              <td><code>process_vision_info</code> rejects OpenAI <code>image_url</code> shape — wrote <code>extract_images()</code> helper</td>
+            </tr>
+            <tr>
+              <td><code>jiwer</code></td>
+              <td class="wbefore">(used difflib)</td>
+              <td class="wafter">installed</td>
+              <td>difflib edit-ratio is not CER/WER — <code>(S+D+I)/N</code> is the real metric</td>
+            </tr>
+            <tr>
+              <td><code>torch</code></td>
+              <td class="wafter">2.11.0+cu130</td>
+              <td class="wafter">2.11.0+cu130</td>
+              <td>driver 580 · CUDA 13.0 · A10G sm_86</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 style="margin-top: 1.6rem;">One-liner that converges</h2>
+<pre class="code bash"><span class="p">$</span> python3 -m venv .venv <span class="p">&amp;&amp;</span> source .venv/bin/activate
+<span class="p">$</span> <span class="var">{sys.executable}</span> -m pip install \
+    <span class="str">"transformers&gt;=4.52.0"</span> \
+    peft==0.14.0 \
+    <span class="str">"accelerate&gt;=1.3.0"</span> \
+    <span class="str">"bitsandbytes&gt;=0.46.1"</span> \
+    torchvision qwen-vl-utils jiwer</pre>
+
+        <div class="deltas">
+          <div class="delta-card red">
+            <span class="lbl">gotcha · PEP 668 lockout</span>
+            Ubuntu 24.04's system Python refuses <code>pip install</code> with
+            <b>externally-managed-environment</b>. Either use a venv (recommended) or
+            pass <code>--break-system-packages</code>. Notebook install cells should
+            call <code>!{sys.executable} -m pip install ...</code> so they target the
+            kernel interpreter, not system Python.
+          </div>
+          <div class="delta-card amber">
+            <span class="lbl">gotcha · stale kernel bytecode</span>
+            After every <code>pip install -U</code>, <b>restart the Jupyter kernel</b>.
+            The running process holds the old module objects in memory and
+            <code>ImportError</code>s will be misleading. Cost us 20 min twice —
+            once on transformers, once on bitsandbytes.
+          </div>
+          <div class="delta-card blue">
+            <span class="lbl">gotcha · <code>%nvidia-smi</code> is not a magic</span>
+            It's a shell command. Use <code>!nvidia-smi</code>. Seen in several
+            old tutorials — copy-paste hazard.
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── HARDWARE ───────────────────────────── -->
+      <div class="section-label"><span class="n">07</span> hardware · what fits where</div>
+      <section class="panel reveal">
+        <h2>VRAM budget — 7B / 8B tier, order-of-magnitude</h2>
+        <p class="panel-sub">
+          Numbers shift with <code>max_pixels</code>, seq length, batch size, and
+          gradient-checkpointing. Rule of thumb for a single-GPU researcher:
+          if you can run inference comfortably, you can run QLoRA with frozen ViT.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>regime</th>
+              <th>Qwen2-VL-7B</th>
+              <th>Qwen2.5-VL-7B</th>
+              <th>Qwen3-VL-8B</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>inference bf16</td><td>~18–20 GB</td><td>~18–20 GB</td><td>~20–22 GB</td></tr>
+            <tr><td>inference 4-bit NF4</td><td>~6–8 GB</td><td>~6–8 GB</td><td>~8–10 GB</td></tr>
+            <tr><td>LoRA bf16 · vision frozen</td><td>~28–36 GB</td><td>~28–36 GB</td><td>~36–44 GB</td></tr>
+            <tr><td>QLoRA 4-bit · vision frozen</td><td>~12–16 GB</td><td>~12–16 GB</td><td>~16–20 GB</td></tr>
+            <tr><td>full finetune bf16</td><td>multi-GPU · ~120 GB+</td><td>multi-GPU · ~120 GB+</td><td>multi-GPU · ~140 GB+</td></tr>
+          </tbody>
+        </table>
+
+        <p style="margin-top: 1rem;">
+          <b>Consumer-GPU reality check (RTX 4060, 8 GB):</b> Qwen2.5-VL-7B is
+          <b>not</b> realistic even with QLoRA — the vision encoder alone pushes
+          past 8 GB. Drop to Qwen3-VL-4B or Qwen2.5-VL-3B with
+          <code>load_in_4bit=True</code>, <code>bnb_4bit_quant_type="nf4"</code>,
+          <code>paged_adamw_8bit</code>, <code>ctx≤2048</code>,
+          <code>batch=1</code>, <code>grad_accum=8–16</code>, gradient
+          checkpointing on.
+        </p>
+        <p>
+          <b>Our run:</b> AWS <code>g5.xlarge</code>, 1× A10G (22.06 GiB usable), Ubuntu
+          24.04 LTS, CUDA 13.0, driver 580. 44 min wall-clock, 1,680 optimizer
+          steps at ~38 steps/min. VRAM headroom ~850 MiB by end of step (tight).
+        </p>
+      </section>
+
+      <!-- ───────────────────────────── SMALL MODEL TRAINING ───────────────────────────── -->
+      <div class="section-label"><span class="n">08</span> small model training · consumer gpus</div>
+      <section class="panel reveal">
+        <h2>What actually fits on an RTX 4060 / 3060 / 4070 / 4090</h2>
+        <p class="panel-sub">
+          The 7B class is the <i>ceiling</i> for a single consumer card; most
+          real work on hobbyist hardware happens at 2B–4B. These numbers are
+          conservative VRAM footprints for LoRA finetune (<b>vision tower
+          frozen</b>, batch=1, grad-checkpointing on, typical image resolution).
+          Halve them with aggressive <code>max_pixels</code> caps.
+        </p>
+
+        <table class="matrix">
+          <thead>
+            <tr>
+              <th>model</th>
+              <th>params</th>
+              <th>LoRA bf16 · fits in</th>
+              <th>QLoRA 4-bit · fits in</th>
+              <th>4060 8GB</th>
+              <th>3060 / 4070 12GB</th>
+              <th>4090 24GB</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Qwen3-0.6B</b> · text</td>
+              <td>0.6 B</td>
+              <td>~3 GB</td>
+              <td>~2 GB</td>
+              <td class="v"><span class="tag-g">yes</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3-1.7B</b> · text</td>
+              <td>1.7 B</td>
+              <td>~5 GB</td>
+              <td>~3 GB</td>
+              <td class="v"><span class="tag-g">yes</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3-4B</b> · text</td>
+              <td>4 B</td>
+              <td>~10 GB</td>
+              <td>~6 GB</td>
+              <td class="v"><span class="tag-b">qlora only · tight</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3-8B</b> · text</td>
+              <td>8 B</td>
+              <td>~18 GB</td>
+              <td>~10 GB</td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-b">qlora only</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3.5-2B</b> · native vl</td>
+              <td>2 B</td>
+              <td>~5 GB</td>
+              <td><span class="tag-b">unstable</span>use bf16</td>
+              <td class="v"><span class="tag-b">tight</span>bf16 only</td>
+              <td class="v"><span class="tag-g">yes</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3.5-4B</b> · native vl</td>
+              <td>4 B</td>
+              <td>~10 GB</td>
+              <td><span class="tag-b">unstable</span>bf16 only</td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-g">yes · bf16</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3.5-9B</b> · native vl</td>
+              <td>10 B</td>
+              <td>~22 GB</td>
+              <td><span class="tag-b">unstable</span>bf16 only</td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-g">tight</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3-VL-2B</b></td>
+              <td>2 B + ViT</td>
+              <td>~12 GB</td>
+              <td>~8 GB</td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-b">tight</span>512 px cap</td>
+              <td class="v"><span class="tag-g">yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3-VL-4B</b></td>
+              <td>4 B + ViT</td>
+              <td>~16 GB</td>
+              <td>~11 GB</td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-b">qlora only</span></td>
+              <td class="v"><span class="tag-g">yes</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen3-VL-8B</b></td>
+              <td>8 B + ViT</td>
+              <td>~24 GB</td>
+              <td>~16 GB</td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-b">qlora · 512 px</span></td>
+              <td class="v"><span class="tag-g">yes · img cap 768 px</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen2.5-VL-7B</b> · this project</td>
+              <td>7 B + ViT</td>
+              <td>~28 GB</td>
+              <td>~14 GB</td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-b">qlora · tight</span></td>
+              <td class="v"><span class="tag-g">yes · our run</span></td>
+            </tr>
+            <tr>
+              <td><b>Qwen2.5-Omni-7B</b></td>
+              <td>7 B + ViT + Audio + Talker</td>
+              <td>~35 GB</td>
+              <td>~22 GB</td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-b">no</span></td>
+              <td class="v"><span class="tag-b">inference only</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 style="margin-top: 1.6rem;">Per-card playbook</h2>
+        <div class="compare-3" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="gen">
+            <div class="gen-name">RTX 4060 · 8 GB</div>
+            <div class="gen-date">entry tier</div>
+            <div class="gen-row"><span class="k">text</span><span class="v">Qwen3-0.6 / 1.7B comfortably</span></div>
+            <div class="gen-row"><span class="k">vl</span><span class="v">Qwen3-VL-2B at 512 px · QLoRA · batch=1</span></div>
+            <div class="gen-row"><span class="k">verdict</span><span class="v">frustrating for VL · fine for text experiments</span></div>
+          </div>
+          <div class="gen">
+            <div class="gen-name">RTX 3060 · 12 GB</div>
+            <div class="gen-date">sweet spot</div>
+            <div class="gen-row"><span class="k">text</span><span class="v">Qwen3-4B · Qwen3.5-2B bf16 LoRA</span></div>
+            <div class="gen-row"><span class="k">vl</span><span class="v">Qwen3-VL-4B QLoRA · reduced pixels</span></div>
+            <div class="gen-row"><span class="k">verdict</span><span class="v">best $/VRAM for hobbyist finetune</span></div>
+          </div>
+          <div class="gen v25">
+            <div class="gen-name">RTX 4070 · 12 GB</div>
+            <div class="gen-date">2× faster than 3060</div>
+            <div class="gen-row"><span class="k">text</span><span class="v">same envelope as 3060</span></div>
+            <div class="gen-row"><span class="k">vl</span><span class="v">Qwen3-VL-4B QLoRA · Qwen3.5-4B bf16</span></div>
+            <div class="gen-row"><span class="k">verdict</span><span class="v">compute-bound · 12 GB still binding</span></div>
+          </div>
+          <div class="gen v3">
+            <div class="gen-name">RTX 4090 · 24 GB</div>
+            <div class="gen-date">same class as our A10G</div>
+            <div class="gen-row"><span class="k">text</span><span class="v">Qwen3-8B · Qwen3.5-9B (tight)</span></div>
+            <div class="gen-row"><span class="k">vl</span><span class="v">Qwen2.5-VL-7B / Qwen3-VL-8B LoRA</span></div>
+            <div class="gen-row"><span class="k">verdict</span><span class="v">full 7B-class finetune · cap images 768 px</span></div>
+          </div>
+        </div>
+
+        <h2 style="margin-top: 1.6rem;">Small-model LoRA recipe · known-good baseline</h2>
+        <p>
+          Across DataCamp's Qwen3-VL-8B tutorial, Unsloth's Qwen3-VL / Qwen3.5
+          docs, and NVIDIA's DGX-Spark notes, the <b>same</b> configuration
+          recurs. Use it as your starting point — then tune <b>only</b> the
+          pixel budget and batch/accum for your card.
+        </p>
+<pre class="code"><span class="var">lora</span> = LoraConfig(
+    r=<span class="num">16</span>,                    <span class="com"># small models ≤ 8B · 32 is overkill and OOMs on 12 GB</span>
+    lora_alpha=<span class="num">32</span>,           <span class="com"># α = 2·r</span>
+    lora_dropout=<span class="num">0.05</span>,
+    target_modules=[<span class="str">"q_proj"</span>,<span class="str">"k_proj"</span>,<span class="str">"v_proj"</span>,<span class="str">"o_proj"</span>,
+                    <span class="str">"gate_proj"</span>,<span class="str">"up_proj"</span>,<span class="str">"down_proj"</span>],
+    task_type=<span class="str">"CAUSAL_LM"</span>, bias=<span class="str">"none"</span>,
+)
+
+<span class="var">args</span> = TrainingArguments(
+    per_device_train_batch_size=<span class="num">2</span>,       <span class="com"># vl-8B: drop to 1 on 24 GB</span>
+    gradient_accumulation_steps=<span class="num">4</span>,       <span class="com"># effective batch 8 — stable</span>
+    learning_rate=<span class="num">1e-4</span>,                  <span class="com"># LoRA; full-FT drop to 1e-5 / 2e-5</span>
+    lr_scheduler_type=<span class="str">"cosine"</span>,
+    warmup_ratio=<span class="num">0.05</span>,
+    bf16=<span class="kw">True</span>,
+    gradient_checkpointing=<span class="kw">True</span>,
+    optim=<span class="str">"adamw_torch_fused"</span>,
+    num_train_epochs=<span class="num">2</span>,                   <span class="com"># small data? 2–3 epochs · longer = overfits</span>
+)</pre>
+
+        <h2 style="margin-top: 1.6rem;">Pixel-budget lever · the one you'll actually use</h2>
+        <p>
+          VRAM on VL training is dominated by the <b>vision token count</b>,
+          not the LLM size. Halving <code>max_pixels</code> typically halves
+          activation memory. Start conservative:
+        </p>
+        <table class="matrix">
+          <thead>
+            <tr><th>scenario</th><th><code>min_pixels</code></th><th><code>max_pixels</code></th><th>max image side</th><th>effect</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>default qwen</td><td><code>4·28·28 = 3 136</code></td><td><code>1280·28·28 = 1 003 520</code></td><td>~1 MP</td><td>baseline — 40+ GB on 8B</td></tr>
+            <tr><td>our project</td><td><code>4·28·28 = 3 136</code></td><td><code>128·28·28 = 100 352</code></td><td>~500 K px</td><td>24 GB fit · our run-02 setting</td></tr>
+            <tr><td>consumer 12 GB</td><td>3 136</td><td><code>64·28·28 = 50 176</code></td><td>~256 K px</td><td>halves VRAM · reasonable for HTR / OCR</td></tr>
+            <tr><td>consumer 8 GB</td><td>3 136</td><td><code>32·28·28 = 25 088</code></td><td>~128 K px</td><td>minimum viable · quality drops on small text</td></tr>
+          </tbody>
+        </table>
+
+        <div class="deltas">
+          <div class="delta-card red">
+            <span class="lbl">hard constraint · Qwen3.5 + bnb 4-bit</span>
+            Unsloth's docs are explicit: <b>QLoRA on Qwen3.5 is unstable</b>
+            because the Gated-DeltaNet hybrid layers don't round-trip cleanly
+            through bnb 4-bit. Use bf16 or 8-bit LoRA. If you're on an 8 GB
+            card and want VL, <b>stay on Qwen3-VL-2B instead</b>.
+          </div>
+          <div class="delta-card amber">
+            <span class="lbl">data-quality filter · brutal</span>
+            DataCamp's Qwen3-VL-8B tutorial retained only <b>39%</b> of an
+            84 K-sample dataset after image/aspect-ratio/token-length filtering.
+            Plan on discarding 40–60 % of naively-scraped VL pairs. Running
+            with trash samples wastes more than compute — it pushes the model
+            toward "safe" outputs.
+          </div>
+          <div class="delta-card blue">
+            <span class="lbl">transformers ≥ 4.57 for Qwen3-VL</span>
+            Older transformers need <code>trust_remote_code=True</code> to load
+            Qwen3-VL. Skip that by bumping transformers to <code>&gt;=4.57.0</code>;
+            native support lands there. Same rule for Qwen3-Omni and Qwen3.5.
+          </div>
+          <div class="delta-card magenta">
+            <span class="lbl">unsloth + liger-kernel on Qwen3-VL full-FT</span>
+            The combination conflicts on <b>full</b> finetune (LoRA is unaffected).
+            Either disable liger-kernel or switch to DeepSpeed ZeRO-2 for full-FT.
+            Rarely matters for small-model work — LoRA is usually the right tool.
+          </div>
+          <div class="delta-card green">
+            <span class="lbl">our project, re-run on smaller models</span>
+            The exact same pipeline in notebooks 05–07 works for
+            Qwen3-VL-2B / 4B by swapping <code>BASE_MODEL</code>,
+            <code>transformers&gt;=4.57</code>, and the model class to
+            <code>Qwen3VLForConditionalGeneration</code>. Expect faster epochs
+            (~20 min on A10G for Qwen3-VL-2B vs 44 min for Qwen2.5-VL-7B) and
+            lower CER on long refs — but watch the short-ref fallback mode,
+            it's the same LM-prior leak pattern on smaller models too.
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── DATA PIPELINE ───────────────────────────── -->
+      <div class="section-label"><span class="n">09</span> data pipeline · raw pixels to jsonl</div>
+      <section class="panel reveal">
+        <h2>Six stages, all reproducible from one repo</h2>
+        <div class="flow">
+          <div class="step">
+            <div class="step-n">01 · tiff→png</div>
+            <div class="step-t">convert</div>
+            <div class="step-d"><code>convert_tif_to_png.py</code> · PIL · parallel</div>
+          </div>
+          <div class="step">
+            <div class="step-n">02 · gpt-label</div>
+            <div class="step-t">teach</div>
+            <div class="step-d">gpt-5.4-mini reads image → JSON transcription</div>
+          </div>
+          <div class="step">
+            <div class="step-n">03 · base64 embed</div>
+            <div class="step-t">pack</div>
+            <div class="step-d">PNG → <code>data:image/png;base64,…</code></div>
+          </div>
+          <div class="step">
+            <div class="step-n">04 · chat reshape</div>
+            <div class="step-t">reformat</div>
+            <div class="step-d">OpenAI messages · system + user image + assistant JSON</div>
+          </div>
+          <div class="step">
+            <div class="step-n">05 · split</div>
+            <div class="step-t">partition</div>
+            <div class="step-d">80/20 stratified · seed=42 · train 1,120 · eval 280</div>
+          </div>
+          <div class="step">
+            <div class="step-n">06 · load</div>
+            <div class="step-t">feed</div>
+            <div class="step-d">per-sample <code>apply_chat_template</code> + decoded PIL images</div>
+          </div>
+        </div>
+
+        <h2 style="margin-top: 1.6rem;">Message format — the silent trap</h2>
+        <p>
+          The JSONL stores OpenAI-style messages. Qwen's
+          <code>qwen_vl_utils.process_vision_info</code> expects a <b>different</b>
+          shape. Get this wrong and you train against empty vision slots (run-01).
+        </p>
+
+        <div class="schema">
+          <div class="schema-box">
+            <div class="schema-t">our jsonl · OpenAI-style</div>
+<pre>{
+  <span class="k">"messages"</span>: [
+    {<span class="k">"role"</span>: <span class="v">"system"</span>, ... },
+    {<span class="k">"role"</span>: <span class="v">"user"</span>,
+     <span class="k">"content"</span>: [
+       {<span class="k">"type"</span>: <span class="v">"image_url"</span>,
+        <span class="k">"image_url"</span>: {
+          <span class="k">"url"</span>: <span class="v">"data:image/png;base64,…"</span>
+        }}
+     ]},
+    {<span class="k">"role"</span>: <span class="v">"assistant"</span>,
+     <span class="k">"content"</span>: <span class="v">"{\"transcription\":…}"</span>}
+  ]
+}</pre>
+          </div>
+          <div class="schema-arrow">→</div>
+          <div class="schema-box">
+            <div class="schema-t">qwen-native · what process_vision_info wants</div>
+<pre>{
+  <span class="k">"role"</span>: <span class="v">"user"</span>,
+  <span class="k">"content"</span>: [
+    {<span class="k">"type"</span>: <span class="v">"image"</span>,
+     <span class="k">"image"</span>: <span class="v">&lt;path | PIL | url&gt;</span>},
+    {<span class="k">"type"</span>: <span class="v">"text"</span>,
+     <span class="k">"text"</span>: <span class="v">"Transcribe"</span>}
+  ]
+}</pre>
+          </div>
+        </div>
+
+        <p style="margin-top: 1rem;">
+          We kept the OpenAI shape (portability with existing tools) and wrote
+          a 20-line <code>extract_images()</code> helper that walks the messages,
+          unwraps <code>image_url.url</code>, strips the
+          <code>data:image/png;base64,</code> prefix, base64-decodes through
+          <code>io.BytesIO</code>, and returns a list of PIL <code>RGB</code>
+          images. The processor accepts PIL directly.
+        </p>
+
+<pre class="code"><span class="kw">def</span> <span class="fn">extract_images</span>(messages):
+    <span class="str">"""Unwrap OpenAI data-URL images into PIL RGB list."""</span>
+    <span class="var">imgs</span> = []
+    <span class="kw">for</span> m <span class="kw">in</span> messages:
+        <span class="var">content</span> = m.get(<span class="str">"content"</span>, [])
+        <span class="kw">if</span> <span class="kw">not</span> isinstance(content, list): <span class="kw">continue</span>
+        <span class="kw">for</span> ele <span class="kw">in</span> content:
+            <span class="kw">if</span> ele.get(<span class="str">"type"</span>) != <span class="str">"image_url"</span>: <span class="kw">continue</span>
+            <span class="var">url</span> = ele[<span class="str">"image_url"</span>][<span class="str">"url"</span>]
+            <span class="var">b64</span> = url.split(<span class="str">","</span>, <span class="num">1</span>)[-<span class="num">1</span>]
+            <span class="var">raw</span> = base64.b64decode(b64)
+            imgs.append(Image.open(io.BytesIO(raw)).convert(<span class="str">"RGB"</span>))
+    <span class="kw">return</span> imgs</pre>
+
+        <div class="deltas">
+          <div class="delta-card amber">
+            <span class="lbl">pixel bounds · must match across notebooks</span>
+            <code>MIN_PIXELS = 4*28*28 = 3136</code> and
+            <code>MAX_PIXELS = 128*28*28 = 100352</code>. Set identically in the
+            data-transform step (nb 04), the training processor init (nb 05) and
+            the eval processor init (nb 06). Mismatch produces silent token-count
+            drift. Halving <code>MAX_PIXELS</code> is the first OOM lever.
+          </div>
+          <div class="delta-card blue">
+            <span class="lbl">dataset size · one-line file</span>
+            Each row is a self-contained JSON object with the image embedded as
+            a base64 data URL (~17 KB/image). Train file 19.6 MB, eval 5.0 MB.
+            Self-contained → portable; the tradeoff is size, fine at 1,400 samples,
+            painful at 10 M.
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── MODEL LOADING ───────────────────────────── -->
+      <div class="section-label"><span class="n">10</span> model loading · 4-bit qlora in 18 lines</div>
+      <section class="panel reveal">
+        <h2>BitsAndBytes + PEFT + Qwen2.5-VL</h2>
+        <p class="panel-sub">
+          7 B parameters in fp16 ≈ 14 GB. NF4 4-bit compresses that to ~4 GB, freeing
+          ~11 GB for activations, gradients, and optimizer state. <code>bnb_4bit_use_double_quant=True</code>
+          quantises the quantisation scales themselves, saving another ~0.5 GB.
+        </p>
+
+<pre class="code"><span class="kw">from</span> transformers <span class="kw">import</span> (
+    Qwen2_5_VLForConditionalGeneration,
+    AutoProcessor, BitsAndBytesConfig,
+)
+<span class="kw">from</span> peft <span class="kw">import</span> LoraConfig, get_peft_model, prepare_model_for_kbit_training
+
+<span class="var">bnb</span> = BitsAndBytesConfig(
+    load_in_4bit=<span class="kw">True</span>,
+    bnb_4bit_quant_type=<span class="str">"nf4"</span>,
+    bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_use_double_quant=<span class="kw">True</span>,
+)
+
+<span class="var">model</span> = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+    <span class="str">"Qwen/Qwen2.5-VL-7B-Instruct"</span>,
+    quantization_config=bnb,
+    torch_dtype=torch.bfloat16,
+    device_map=<span class="str">"auto"</span>,
+    attn_implementation=<span class="str">"sdpa"</span>,            <span class="com"># flash-attn 2 also ok</span>
+)
+<span class="var">processor</span> = AutoProcessor.from_pretrained(
+    <span class="str">"Qwen/Qwen2.5-VL-7B-Instruct"</span>,
+    min_pixels=<span class="num">3136</span>, max_pixels=<span class="num">100352</span>,
+)
+
+<span class="var">model</span> = prepare_model_for_kbit_training(model)     <span class="com"># casts norms to fp32, enables grad ckpt</span>
+<span class="var">lora</span> = LoraConfig(
+    r=<span class="num">32</span>, lora_alpha=<span class="num">64</span>, lora_dropout=<span class="num">0.05</span>,
+    target_modules=[<span class="str">"q_proj"</span>,<span class="str">"k_proj"</span>,<span class="str">"v_proj"</span>,<span class="str">"o_proj"</span>,
+                    <span class="str">"gate_proj"</span>,<span class="str">"up_proj"</span>,<span class="str">"down_proj"</span>],
+    task_type=<span class="str">"CAUSAL_LM"</span>, bias=<span class="str">"none"</span>,
+)
+<span class="var">model</span> = get_peft_model(model, lora)            <span class="com"># trainable: ~1.93% / 159 M of 8.29 B</span></pre>
+
+        <h2 style="margin-top: 1.6rem;">Target modules · anatomy</h2>
+        <div class="two">
+          <div>
+            <p>
+              The LLM backbone of each Qwen transformer block has seven
+              <code>nn.Linear</code> layers worth attaching LoRA to:
+            </p>
+            <ul style="font-size: 0.66rem; color: var(--sub); line-height: 1.9; padding-left: 1rem;">
+              <li><code>q_proj</code> · query projection</li>
+              <li><code>k_proj</code> · key projection</li>
+              <li><code>v_proj</code> · value projection</li>
+              <li><code>o_proj</code> · attention output projection</li>
+              <li><code>gate_proj</code> · SwiGLU gate branch</li>
+              <li><code>up_proj</code> · SwiGLU up branch</li>
+              <li><code>down_proj</code> · SwiGLU down projection</li>
+            </ul>
+            <p style="margin-top: 0.8rem;">
+              Covering all seven is <b>more comprehensive than most defaults</b>
+              (which stop at <code>q_proj/v_proj</code>). The extra coverage costs
+              a few % extra VRAM but delivers materially lower eval loss.
+            </p>
+          </div>
+          <div>
+            <p>
+              <b>r=32, α=64.</b> Rank 32 is the max stable setting on 24 GB A10G
+              with batch=1 + grad-ckpt for Qwen2.5-VL-7B. Rank 64 OOMs. α = 2×r
+              is the textbook scaling. Dropout 0.05 is a light regulariser
+              appropriate for a 1,120-sample corpus. With
+              <code>bias="none"</code> LoRA skips bias adaptation (keeps
+              parameter count down).
+            </p>
+            <p style="margin-top: 0.8rem;">
+              Trainable: <b>~159 M params · 1.93%</b> of the 8.29 B total. Everything
+              else is frozen and 4-bit quantised.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── TRAINING LOOP ───────────────────────────── -->
+      <div class="section-label"><span class="n">11</span> training loop · arguments + dataset + collator</div>
+      <section class="panel reveal">
+        <h2>TrainingArguments we landed on</h2>
+
+        <table class="matrix">
+          <thead>
+            <tr><th>knob</th><th>value</th><th>why</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>num_train_epochs</code></td><td>3</td><td>epoch 1 does the heavy lifting · epoch 3 overfits · ckpt-2 is the keeper</td></tr>
+            <tr><td><code>per_device_train_batch_size</code></td><td>1</td><td>only viable at 24 GB with grad-ckpt</td></tr>
+            <tr><td><code>gradient_accumulation_steps</code></td><td>2</td><td>effective batch = 2 with no extra vram</td></tr>
+            <tr><td><code>learning_rate</code></td><td>2e-5</td><td>conservative for VL; higher risks loss spikes on 1 k samples</td></tr>
+            <tr><td><code>lr_scheduler_type</code></td><td>cosine</td><td>decay to ≈ 0 by step 1680</td></tr>
+            <tr><td><code>warmup_ratio</code></td><td>0.1</td><td>ramp over first 168 steps · stable start</td></tr>
+            <tr><td><code>max_grad_norm</code></td><td>1.0</td><td>gradient clipping (grad-norm peaked near 4.2)</td></tr>
+            <tr><td><code>bf16</code></td><td>True</td><td>A10G supports · fp16 softmax-overflows on ViT</td></tr>
+            <tr><td><code>gradient_checkpointing</code></td><td>True</td><td>fits 7B on 24 GB · <b>forces use_cache=False</b></td></tr>
+            <tr><td><code>optim</code></td><td><code>adamw_torch_fused</code></td><td>fused kernels · ~5% step speedup</td></tr>
+            <tr><td><code>eval_strategy</code></td><td><code>"epoch"</code></td><td>ren­amed from <code>evaluation_strategy</code> in 4.46 — easy to miss</td></tr>
+            <tr><td><code>save_strategy</code></td><td><code>"epoch"</code></td><td>checkpoint every epoch</td></tr>
+            <tr><td><code>save_total_limit</code></td><td>2</td><td>keep ckpt-1120 + ckpt-1680</td></tr>
+            <tr><td><code>seed</code></td><td>42</td><td>reproducibility</td></tr>
+            <tr><td><code>PYTORCH_CUDA_ALLOC_CONF</code></td><td><code>expandable_segments:True</code></td><td>env var · fragmentation mitigation</td></tr>
+          </tbody>
+        </table>
+
+        <h2 style="margin-top: 1.6rem;">Dataset — the single highest-ROI fix in the whole project</h2>
+        <p>
+          The run-01 <code>ArabicHTRDataset.__getitem__</code> called
+          <code>self.processor(text=text, return_tensors="pt")</code> <b>without passing
+          <code>images=</code></b>. The model trained against empty vision slots for
+          1 h; at eval it hallucinated a 512-token Arabic loop. The fix is four
+          lines:
+        </p>
+
+<pre class="code"><span class="kw">class</span> <span class="fn">ArabicHTRDataset</span>(Dataset):
+    <span class="kw">def</span> <span class="fn">__getitem__</span>(self, idx):
+        <span class="var">sample</span>   = self.samples[idx]
+        <span class="var">messages</span> = sample[<span class="str">"messages"</span>]
+        <span class="var">text</span>     = self.processor.apply_chat_template(
+            messages, tokenize=<span class="kw">False</span>, add_generation_prompt=<span class="kw">False</span>,
+        )
+        <span class="var">image_inputs</span> = extract_images(messages)      <span class="com"># ← THE FIX</span>
+
+        <span class="var">inputs</span> = self.processor(
+            text=[text],
+            images=image_inputs <span class="kw">or</span> <span class="kw">None</span>,          <span class="com"># ← THE FIX</span>
+            return_tensors=<span class="str">"pt"</span>,
+            truncation=<span class="kw">True</span>,
+            max_length=<span class="num">8192</span>,
+            padding=<span class="kw">False</span>,                             <span class="com"># ← dynamic pad via collator</span>
+        )
+        inputs[<span class="str">"labels"</span>] = inputs[<span class="str">"input_ids"</span>].clone()
+        <span class="kw">return</span> {k: v.squeeze(<span class="num">0</span>) <span class="kw">for</span> k, v <span class="kw">in</span> inputs.items()}</pre>
+
+        <p>
+          Pair with <code>DataCollatorForSeq2Seq(tokenizer=processor.tokenizer)</code> so
+          batches pad to the longest sample and <code>-100</code> fills label
+          positions at pad slots — standard causal-LM masking.
+        </p>
+
+        <div class="deltas">
+          <div class="delta-card red">
+            <span class="lbl">OOM trap · <code>padding="max_length"</code></span>
+            Hard-coding <code>padding="max_length"</code> at <code>MAX_SEQ_LENGTH=8192</code> pads
+            every sample — even 12-token ones — to 8 K. Activations are quadratic
+            in seq length, and a single short sample blew 4.64 GiB. Switch to
+            <b>dynamic padding</b> via <code>DataCollatorForSeq2Seq</code> and the problem
+            disappears. Secondary levers (in order of impact): drop
+            <code>LORA_R 32 → 16</code>, halve <code>MAX_PIXELS</code>,
+            <code>expandable_segments:True</code>.
+          </div>
+          <div class="delta-card blue">
+            <span class="lbl">loss trajectory · run-02</span>
+            train 8.01 → 1.46 · eval by epoch <b>1.6350 / 1.6248★ / 1.6387</b> ·
+            best = ckpt-1120 (end of epoch 2). Gradient-norm drifted from ~2 to
+            ~4 through training; clipping at 1.0 kept things stable.
+            Epoch 3 is a textbook mild-overfit signature: train keeps falling,
+            eval turns up. Early-stop at epoch 2 in future runs.
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── EVALUATION ───────────────────────────── -->
+      <div class="section-label"><span class="n">12</span> evaluation · what fixed the 48-second generate</div>
+      <section class="panel reveal">
+        <h2>Before / after — same adapter, rerun eval</h2>
+        <p class="panel-sub">
+          Run-01 reported CER 29.9, WER 32.0, 48 s/sample. Most of that was
+          <b>not</b> the model — it was the evaluation harness. Passing images,
+          re-enabling KV cache, capping <code>max_new_tokens</code>, and adding
+          early-stop strings collapsed the numbers without retraining.
+        </p>
+
+        <div class="ba">
+          <div class="ba-card before">
+            <div class="ba-head">before · run-01 eval</div>
+            <div class="ba-metric"><span class="k">CER</span><span class="v">29.91</span></div>
+            <div class="ba-metric"><span class="k">WER</span><span class="v">32.04</span></div>
+            <div class="ba-metric"><span class="k">latency / sample</span><span class="v">48.02 s</span></div>
+            <div class="ba-metric"><span class="k">valid json rate</span><span class="v">100 %</span></div>
+            <div class="ba-metric"><span class="k">metric library</span><span class="v">difflib (wrong)</span></div>
+            <div class="ba-metric"><span class="k">max_new_tokens</span><span class="v">512</span></div>
+            <div class="ba-metric"><span class="k">use_cache</span><span class="v">False (leaked from train)</span></div>
+            <div class="ba-metric"><span class="k">images= argument</span><span class="v">missing</span></div>
+          </div>
+          <div class="ba-card after">
+            <div class="ba-head">after · run-02 eval (same adapter)</div>
+            <div class="ba-metric"><span class="k">CER</span><span class="v">2.31 → 1.28 (ckpt-1120)</span></div>
+            <div class="ba-metric"><span class="k">WER</span><span class="v">2.32 → 1.28</span></div>
+            <div class="ba-metric"><span class="k">latency / sample</span><span class="v">4.42 s → 3.52 s</span></div>
+            <div class="ba-metric"><span class="k">valid json rate</span><span class="v">100 %</span></div>
+            <div class="ba-metric"><span class="k">metric library</span><span class="v">jiwer · (S+D+I)/N</span></div>
+            <div class="ba-metric"><span class="k">max_new_tokens</span><span class="v">128</span></div>
+            <div class="ba-metric"><span class="k">use_cache</span><span class="v">True + model.config.use_cache=True</span></div>
+            <div class="ba-metric"><span class="k">images= argument</span><span class="v">extract_images() + passed</span></div>
+          </div>
+        </div>
+
+        <h2 style="margin-top: 1.6rem;">Generation config that works</h2>
+<pre class="code"><span class="kw">with</span> torch.inference_mode():
+    <span class="var">out</span> = model.generate(
+        **inputs,
+        max_new_tokens=<span class="num">128</span>,                    <span class="com"># was 512 → runaway Arabic</span>
+        do_sample=<span class="kw">False</span>,                       <span class="com"># greedy</span>
+        use_cache=<span class="kw">True</span>,                        <span class="com"># explicit · grad-ckpt turned it off</span>
+        repetition_penalty=<span class="num">1.1</span>,
+        no_repeat_ngram_size=<span class="num">6</span>,
+        stop_strings=[<span class="str">'"}'</span>],                   <span class="com"># JSON closes = halt</span>
+        tokenizer=processor.tokenizer,            <span class="com"># required when stop_strings set</span>
+        eos_token_id=processor.tokenizer.eos_token_id,
+        pad_token_id=processor.tokenizer.pad_token_id,
+    )</pre>
+
+        <p>
+          Also prepend <code>{"transcription":"</code> to the processor text
+          input — this forces the model into a known JSON prefix, so the parser
+          downstream is near-guaranteed to succeed (<b>100% valid-JSON rate</b>
+          across 280 eval samples).
+        </p>
+
+        <h2 style="margin-top: 1.6rem;">Checkpoint shoot-out · run-02</h2>
+        <div class="ba">
+          <div class="ba-card after">
+            <div class="ba-head">merged · ckpt-1680 (epoch 3)</div>
+            <div class="ba-metric"><span class="k">CER</span><span class="v">1.4505</span></div>
+            <div class="ba-metric"><span class="k">WER</span><span class="v">1.5765</span></div>
+            <div class="ba-metric"><span class="k">latency / sample</span><span class="v">3.52 s</span></div>
+            <div class="ba-metric"><span class="k">eval loss</span><span class="v">1.6387</span></div>
+          </div>
+          <div class="ba-card after" style="border-left-color: var(--amber);">
+            <div class="ba-head" style="color: var(--amber);">winner · ckpt-1120 (epoch 2) · −12% CER</div>
+            <div class="ba-metric"><span class="k">CER</span><span class="v">1.2824</span></div>
+            <div class="ba-metric"><span class="k">WER</span><span class="v">1.2767</span></div>
+            <div class="ba-metric"><span class="k">latency / sample</span><span class="v">4.52 s</span></div>
+            <div class="ba-metric"><span class="k">eval loss</span><span class="v">1.6248 ★</span></div>
+          </div>
+        </div>
+
+        <p style="margin-top: 1rem;">
+          <b>Trust the eval-loss curve, not the final checkpoint.</b>
+          <code>trainer_state.json</code> records <code>best_global_step</code>; on
+          this run that was step 1,120 (end of epoch 2), and it beat the final
+          merged adapter by 12% CER. Shipping the last checkpoint by default is
+          a landmine for any task where epoch 3 overfits.
+        </p>
+
+        <h2 style="margin-top: 1.6rem;">Stratify CER before you report it</h2>
+        <p>
+          A single "mean CER = 1.28" hides three regimes:
+        </p>
+        <table class="matrix">
+          <thead>
+            <tr><th>bucket</th><th>N</th><th>mean CER</th><th>median</th><th>p90</th><th>regime</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>short (≤10 chars)</td><td>8 · 2.9%</td><td class="wbefore">8.978</td><td>8.125</td><td>11.167</td><td>catastrophic fallback (LM prior leak)</td></tr>
+            <tr><td>medium (11–60)</td><td>123 · 43.9%</td><td class="wdelta">1.330</td><td>1.060</td><td>1.900</td><td>over-production · responds to stop_strings</td></tr>
+            <tr><td>long (&gt;60)</td><td>149 · 53.2%</td><td class="wafter">0.829</td><td>0.829</td><td>0.903</td><td>sane · responds to more training</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top: 1rem;">
+          On short references the model falls back to a memorised Arabic
+          sentence ("الصينية، وهم يدعون إلى التفاوض ..."). A grep of
+          <code>data/train/train.jsonl</code> shows <b>0 / 1,120</b> matches — this
+          is an <b>LM-prior leak from the base Qwen</b>, not a training-data
+          artifact. Drivers: training ref-length distribution biases output
+          length, the JSON prefix primes continuation not termination, and
+          <code>repetition_penalty</code> doesn't reward EOS.
+        </p>
+      </section>
+
+      <!-- ───────────────────────────── INFERENCE / VLLM ───────────────────────────── -->
+      <div class="section-label"><span class="n">13</span> inference · vllm + lora swap</div>
+      <section class="panel reveal">
+        <h2>Serve the adapter without merging</h2>
+        <p class="panel-sub">
+          vLLM supports hot-loading LoRA adapters on top of a base model, so
+          you don't need to materialise a merged 14 GB checkpoint. The
+          <code>--max-lora-rank</code> flag must match the adapter's r.
+        </p>
+
+<pre class="code bash"><span class="p">$</span> python3 -m vllm.entrypoints.openai.api_server \
+    --model <span class="str">Qwen/Qwen2.5-VL-7B-Instruct</span> \
+    --enable-lora \
+    --max-lora-rank <span class="num">32</span>                          <span class="com"># matches LoRA r</span> \
+    --lora-modules arabic-ocr=<span class="str">/path/models/lora_adapter/run-2</span> \
+    --served-model-name <span class="str">arabic-ocr-v1</span> \
+    --max-model-len <span class="num">8192</span> \
+    --gpu-memory-utilization <span class="num">0.90</span> \
+    --trust-remote-code \
+    --host <span class="num">0.0.0.0</span> --port <span class="num">8000</span> \
+    --dtype auto</pre>
+
+        <p>
+          OpenAI-compatible client — drop-in replacement for the ChatCompletions
+          SDK, same request shape as your data-labelling code:
+        </p>
+
+<pre class="code"><span class="kw">from</span> openai <span class="kw">import</span> OpenAI
+<span class="var">client</span> = OpenAI(base_url=<span class="str">"http://localhost:8000/v1"</span>, api_key=<span class="str">"sk-any"</span>)
+<span class="var">resp</span> = client.chat.completions.create(
+    model=<span class="str">"arabic-ocr-v1"</span>,
+    messages=[{
+        <span class="str">"role"</span>: <span class="str">"user"</span>,
+        <span class="str">"content"</span>: [
+            {<span class="str">"type"</span>: <span class="str">"image_url"</span>,
+             <span class="str">"image_url"</span>: {<span class="str">"url"</span>: f<span class="str">"data:image/png;base64,{b64}"</span>}},
+            {<span class="str">"type"</span>: <span class="str">"text"</span>, <span class="str">"text"</span>: <span class="str">"Transcribe."</span>},
+        ],
+    }],
+    max_tokens=<span class="num">128</span>, temperature=<span class="num">0</span>,
+)</pre>
+
+        <p>
+          vLLM uses PagedAttention and speculative decoding — expect 3–10×
+          throughput over HF <code>model.generate</code> on the same hardware.
+          For 24 GB A10G, leave <code>--gpu-memory-utilization ≤ 0.90</code> and
+          keep <code>--max-model-len</code> aligned with your training setting
+          (8 K for this project) so KV-cache doesn't balloon.
+        </p>
+      </section>
+
+      <!-- ───────────────────────────── ISSUES ENCYCLOPEDIA ───────────────────────────── -->
+      <div class="section-label"><span class="n">14</span> issues encyclopedia · every scar</div>
+      <section class="panel reveal" style="padding: 1rem 1.2rem;">
+        <p class="panel-sub" style="margin-bottom: 0.4rem;">
+          Fourteen concrete failures hit during runs 01–02, grouped by where
+          they surface. Every card = exact error + root cause + the one-line fix.
+        </p>
+      </section>
+
+      <div class="issues">
+        <div class="issue">
+          <div class="issue-tag">deps · import</div>
+          <div class="issue-title"><code>ImportError: cannot import Qwen2_5_VLForConditionalGeneration</code></div>
+          <div class="issue-body">
+            <b>Cause:</b> pinned <code>transformers==4.47.0</code>; class added in ≥ 4.52.
+            <span class="fix-label">fix</span>
+            <code>pip install "transformers&gt;=4.52.0"</code> then restart kernel.
+          </div>
+        </div>
+
+        <div class="issue">
+          <div class="issue-tag">deps · bnb</div>
+          <div class="issue-title"><code>Using bnb 4-bit requires bitsandbytes&gt;=0.46.1</code></div>
+          <div class="issue-body">
+            <b>Cause:</b> <code>bitsandbytes==0.45.0</code> pre-dates the 4-bit hook in newer transformers.
+            <span class="fix-label">fix</span>
+            <code>pip install -U "bitsandbytes&gt;=0.46.1"</code> · we landed on 0.49.2.
+          </div>
+        </div>
+
+        <div class="issue">
+          <div class="issue-tag">deps · accelerate</div>
+          <div class="issue-title"><code>TypeError: Accelerator.unwrap_model() got unexpected kwarg 'keep_torch_compile'</code></div>
+          <div class="issue-body">
+            <b>Cause:</b> <code>transformers ≥ 4.52</code> calls the kwarg, <code>accelerate==1.2.1</code> doesn't know it.
+            <span class="fix-label">fix</span>
+            <code>pip install "accelerate&gt;=1.3.0"</code>. Keep transformers + accelerate in lockstep.
+          </div>
+        </div>
+
+        <div class="issue">
+          <div class="issue-tag">deps · processor</div>
+          <div class="issue-title"><code>AutoProcessor.from_pretrained()</code> crashes on Qwen2.5-VL</div>
+          <div class="issue-body">
+            <b>Cause:</b> the processor's internal <code>Qwen2VLVideoProcessor</code> imports
+            torchvision, even for image-only workflows.
+            <span class="fix-label">fix</span>
+            <code>pip install torchvision</code>. Not listed in model card.
+          </div>
+        </div>
+
+        <div class="issue warn">
+          <div class="issue-tag">deps · linter</div>
+          <div class="issue-title"><code>prepare_model_for_kbit_training is not exported from peft</code></div>
+          <div class="issue-body">
+            <b>Cause:</b> linter uses type stubs that moved the symbol to <code>peft.utils.other</code>. Runtime import from top-level still works.
+            <span class="fix-label">fix</span>
+            Silence linter with <code>from peft.utils.other import prepare_model_for_kbit_training</code> · functionally identical.
+          </div>
+        </div>
+
+        <div class="issue warn">
+          <div class="issue-tag">deps · rename</div>
+          <div class="issue-title"><code>evaluation_strategy</code> is a no-op in transformers ≥ 4.46</div>
+          <div class="issue-body">
+            <b>Cause:</b> argument renamed to <code>eval_strategy</code>. Only surfaces as a linter warning; silently ignored.
+            <span class="fix-label">fix</span>
+            <code>eval_strategy="epoch"</code>.
+          </div>
+        </div>
+
+        <div class="issue">
+          <div class="issue-tag">memory · oom</div>
+          <div class="issue-title"><code>OutOfMemoryError: CUDA out of memory</code> · tried to allocate 4.64 GiB</div>
+          <div class="issue-body">
+            <b>Cause:</b> <code>padding='max_length'</code> + <code>MAX_SEQ_LENGTH=8192</code>
+            pads every sample to 8 K tokens. Activations are O(n²) in seq length.
+            <span class="fix-label">fix</span>
+            <code>padding=False</code> in the processor call, wire
+            <code>DataCollatorForSeq2Seq</code> into the Trainer. Then optionally
+            <code>LORA_R 32→16</code>, halve <code>MAX_PIXELS</code>, and
+            <code>PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True</code>.
+          </div>
+        </div>
+
+        <div class="issue">
+          <div class="issue-tag">vision · silent</div>
+          <div class="issue-title">empty <code>pixel_values</code> — model trains on blank vision slots</div>
+          <div class="issue-body">
+            <b>Cause:</b> Dataset called <code>processor(text=...)</code> without
+            <code>images=</code>. The model got <b>no visual input</b>. Eval exploded
+            into runaway Arabic.
+            <span class="fix-label">fix</span>
+            Build <code>extract_images()</code> helper, pass
+            <code>images=image_inputs or None</code> to the processor.
+            <b>Single highest-ROI bug in the project.</b>
+          </div>
+        </div>
+
+        <div class="issue">
+          <div class="issue-tag">vision · format</div>
+          <div class="issue-title"><code>ValueError: image, image_url or video should in content</code></div>
+          <div class="issue-body">
+            <b>Cause:</b> <code>qwen_vl_utils.process_vision_info</code> expects
+            Qwen-native <code>{"type":"image","image":...}</code>, not OpenAI
+            <code>{"type":"image_url","image_url":{"url":"data:..."}}</code>. It reads
+            <code>ele["image_url"]</code> as a string, finds a dict, throws.
+            <span class="fix-label">fix</span>
+            20-line <code>extract_images()</code> bypass — see §05.
+          </div>
+        </div>
+
+        <div class="issue">
+          <div class="issue-tag">eval · loop</div>
+          <div class="issue-title">48 s/sample · model outputs 512-token Arabic monologue</div>
+          <div class="issue-body">
+            <b>Cause:</b> (1) <code>use_cache=False</code> leaked from training (grad-ckpt forces it off),
+            (2) <code>max_new_tokens=512</code> too high, (3) no <code>stop_strings</code>, (4) empty vision.
+            <span class="fix-label">fix</span>
+            <code>model.config.use_cache = True</code> + <code>use_cache=True</code> in
+            <code>.generate()</code> + <code>max_new_tokens=128</code> +
+            <code>stop_strings=['"}']</code> + <code>torch.inference_mode()</code>. Latency 48 → 3.5 s.
+          </div>
+        </div>
+
+        <div class="issue warn">
+          <div class="issue-tag">metrics · wrong</div>
+          <div class="issue-title">CER &gt; 1.0 — looks broken, is actually correct</div>
+          <div class="issue-body">
+            <b>Cause:</b> <code>jiwer.cer = (S+D+I) / N_ref</code>. When prediction is
+            longer than reference, insertions push the numerator above N. This
+            is the standard definition. Notebook markdown incorrectly claimed
+            "clamped to [0,1]".
+            <span class="fix-label">fix</span>
+            Keep CER raw so over-production stays visible. Fix the root cause with
+            <code>stop_strings</code> and a tighter <code>max_new_tokens</code>.
+          </div>
+        </div>
+
+        <div class="issue info">
+          <div class="issue-tag">cache · hf</div>
+          <div class="issue-title">"Re-downloading 15 GB on every kernel restart"</div>
+          <div class="issue-body">
+            <b>Cause:</b> not a re-download — <code>from_pretrained</code> does ETag
+            HTTP checks, then loads + NF4-quantises 729 safetensors shards
+            from disk to VRAM (~2 min).
+            <span class="fix-label">fix</span>
+            <code>snapshot_download(BASE_MODEL, local_files_only=True)</code> +
+            <code>from_pretrained(snapshot_path, local_files_only=True)</code>.
+            Progress bar now visibly "disk → GPU", not network.
+          </div>
+        </div>
+
+        <div class="issue warn">
+          <div class="issue-tag">ux · state</div>
+          <div class="issue-title"><code>NameError: name 'CHECKPOINT' is not defined</code></div>
+          <div class="issue-body">
+            <b>Cause:</b> after a kernel restart, the config cell was skipped; the
+            summary cell later referenced <code>CHECKPOINT</code>.
+            <span class="fix-label">fix</span>
+            <code>globals().get('CHECKPOINT', None) or 'merged'</code> and rebuild
+            <code>LOG_DIR</code> from <code>RUN_NAME</code> defensively.
+          </div>
+        </div>
+
+        <div class="issue info">
+          <div class="issue-tag">os · pep668</div>
+          <div class="issue-title"><code>error: externally-managed-environment</code></div>
+          <div class="issue-body">
+            <b>Cause:</b> Ubuntu 24.04's system Python blocks <code>pip install</code> globally (PEP 668).
+            <span class="fix-label">fix</span>
+            Create a venv at <code>.venv</code>; notebook install cells use
+            <code>!{sys.executable} -m pip install ...</code> so they target the
+            kernel interpreter, not <code>/usr/bin/python3</code>.
+          </div>
+        </div>
+      </div>
+
+      <!-- ───────────────────────────── EFFICIENCY / ACCURACY WINS ───────────────────────────── -->
+      <div class="section-label"><span class="n">15</span> efficiency + accuracy · the before/after ledger</div>
+      <section class="panel reveal">
+        <h2>Where every fix landed on the scoreboard</h2>
+
+        <table class="improve">
+          <thead>
+            <tr>
+              <th>fix</th>
+              <th>before</th>
+              <th>after</th>
+              <th>delta</th>
+              <th>mechanism</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>pass <code>images=</code> to processor</td>
+              <td class="wbefore">CER 29.9 · garbage</td>
+              <td class="wafter">CER 2.31</td>
+              <td class="wdelta">−92 %</td>
+              <td>model actually sees pixels</td>
+            </tr>
+            <tr>
+              <td>grow dataset 80 → 1 120 samples</td>
+              <td class="wbefore">eval-loss 1.85</td>
+              <td class="wafter">eval-loss 1.62</td>
+              <td class="wdelta">−12 %</td>
+              <td>14× signal</td>
+            </tr>
+            <tr>
+              <td>dynamic padding via collator</td>
+              <td class="wbefore">OOM 4.64 GiB</td>
+              <td class="wafter">fit in 24 GB</td>
+              <td class="wdelta">unblocked</td>
+              <td>no more 8 K pad on 12-token samples</td>
+            </tr>
+            <tr>
+              <td>re-enable <code>use_cache</code> at eval</td>
+              <td class="wbefore">48 s/sample</td>
+              <td class="wafter">4.4 s/sample</td>
+              <td class="wdelta">−91 %</td>
+              <td>KV cache stops recomputing prefix each token</td>
+            </tr>
+            <tr>
+              <td><code>max_new_tokens</code> 512 → 128</td>
+              <td class="wbefore">repetition loops</td>
+              <td class="wafter">bounded output</td>
+              <td class="wdelta">cleaner</td>
+              <td>ceiling matches typical reference length</td>
+            </tr>
+            <tr>
+              <td>add <code>stop_strings=['"}']</code></td>
+              <td class="wbefore">over-production</td>
+              <td class="wafter">JSON close → halt</td>
+              <td class="wdelta">+latency 1 s · better CER</td>
+              <td>generation halts on first JSON close</td>
+            </tr>
+            <tr>
+              <td><code>torch.inference_mode()</code></td>
+              <td class="wbefore">autograd bookkeeping</td>
+              <td class="wafter">no autograd</td>
+              <td class="wdelta">~10 % faster</td>
+              <td>drops graph tracking overhead</td>
+            </tr>
+            <tr>
+              <td>swap difflib → jiwer</td>
+              <td class="wbefore">CER semantics unclear</td>
+              <td class="wafter">(S+D+I)/N standard</td>
+              <td class="wdelta">correctness</td>
+              <td>industry-standard metric</td>
+            </tr>
+            <tr>
+              <td>pick ckpt-1120 over final</td>
+              <td class="wbefore">CER 1.45</td>
+              <td class="wafter">CER 1.28</td>
+              <td class="wdelta">−12 %</td>
+              <td>avoid epoch-3 overfit</td>
+            </tr>
+            <tr>
+              <td><code>snapshot_download(local_files_only=True)</code></td>
+              <td class="wbefore">2 min + "re-download" confusion</td>
+              <td class="wafter">2 min · clear progress bar</td>
+              <td class="wdelta">ux</td>
+              <td>no HTTP ETag checks</td>
+            </tr>
+            <tr>
+              <td>grad-ckpt + bf16 + NF4</td>
+              <td class="wbefore">7B doesn't fit on A10G</td>
+              <td class="wafter">fits · 44 min / 3 epochs</td>
+              <td class="wdelta">unblocked</td>
+              <td>three orthogonal memory wins</td>
+            </tr>
+            <tr>
+              <td>JSON prefix forcing</td>
+              <td class="wbefore">~88 % valid JSON</td>
+              <td class="wafter">100 % valid JSON</td>
+              <td class="wdelta">+12 pp</td>
+              <td>model finishes the JSON scaffold you started</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ───────────────────────────── CHECKLIST ───────────────────────────── -->
+      <div class="section-label"><span class="n">16</span> the pre-flight checklist · if i did this again</div>
+      <section class="panel reveal">
+        <div class="checklist">
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Verify <code>pixel_values</code> is non-zero before step 1.</b> Assert
+            <code>batch["pixel_values"].abs().sum() &gt; 0</code> in a training hook. The
+            single most expensive bug in this project was silent vision absence.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Pin min-versions, not exact versions.</b>
+            <code>transformers≥4.52</code> · <code>accelerate≥1.3</code> ·
+            <code>bitsandbytes≥0.46.1</code> · <code>peft==0.14.0</code> ·
+            <code>torchvision</code> · <code>qwen-vl-utils</code> · <code>jiwer</code>.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Dynamic padding from day one.</b> <code>DataCollatorForSeq2Seq</code>
+            · never <code>padding='max_length'</code> on an 8 K context.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Use the model's own processor.</b> Qwen2-VL ≠ Qwen2.5-VL ≠ Qwen3-VL
+            processor signatures (<code>return_video_kwargs</code>, timestamp tokens).</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Freeze the vision tower</b> unless you have a concrete reason
+            to train it. If you do, drop 4-bit → bf16 (QLoRA + vision train is unsupported).</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Restart the kernel after every <code>pip install -U</code>.</b>
+            Python caches module objects; stale bytecode produces misleading errors.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Re-enable <code>use_cache</code> at eval.</b> Gradient
+            checkpointing turns it off; explicit
+            <code>model.config.use_cache = True</code> + pass
+            <code>use_cache=True</code> to <code>.generate()</code>.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Evaluate every checkpoint</b>. Don't auto-ship the final. Trust
+            <code>trainer_state.json</code>'s <code>best_global_step</code>.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Stratify CER by reference length</b> before reporting. A single
+            mean hides over-production in the short bucket vs. a sane long-ref
+            regime.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Use jiwer for CER/WER.</b> Don't clamp — values &gt; 1 are
+            meaningful (over-production). Fix the cause, don't hide the signal.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Force JSON prefix</b> at decode time
+            (<code>{"transcription":"</code>) and pair with
+            <code>stop_strings=['"}']</code>. Gets you a 100% valid-JSON rate.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Snapshot-download the base model.</b>
+            <code>snapshot_download(local_files_only=True)</code> then
+            <code>from_pretrained(snapshot_path, local_files_only=True)</code>.
+            Eliminates "re-download" illusions on kernel restart.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Match <code>--max-lora-rank</code> to the adapter's r</b> when
+            launching vLLM. Forgetting this is a common rejection reason.</div>
+          </div>
+          <div class="check">
+            <div class="check-mark">✓</div>
+            <div><b>Expect epoch 2 to be the keeper on small datasets.</b>
+            1 k samples → 3 epochs is the minimum floor; epoch 3 usually
+            overfits. Add weight decay if you must run further.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────────────── POINTERS ───────────────────────────── -->
+      <div class="section-label"><span class="n">17</span> further reading</div>
+      <section class="panel reveal">
+        <div class="two">
+          <div>
+            <h2>Papers · model cards</h2>
+            <ul style="font-size: 0.62rem; color: var(--sub); line-height: 1.95; padding-left: 1rem; list-style: none;">
+              <li>→ Qwen2-VL · <code>arXiv:2409.12191</code></li>
+              <li>→ Qwen2.5-VL · <code>arXiv:2502.13923</code></li>
+              <li>→ Qwen3 · <code>arXiv:2505.09388</code> · Apr 2025</li>
+              <li>→ Qwen2.5-Omni · <code>arXiv:2503.20215</code> · Mar 2025</li>
+              <li>→ Qwen3-Omni · <code>arXiv:2509.17765</code> · Sep 2025</li>
+              <li>→ Qwen3-VL · <code>arXiv:2511.21631</code> · Dec 2025</li>
+              <li>→ Qwen3.5 · blog Feb 2026 · natively VL · 248 k vocab</li>
+              <li>→ Qwen3.6-35B-A3B · Apr 2026 · tech report pending</li>
+              <li>→ HF · <code>Qwen/Qwen2.5-VL-7B-Instruct</code></li>
+              <li>→ HF · <code>Qwen/Qwen3-VL-8B-Instruct</code></li>
+              <li>→ HF · <code>Qwen/Qwen3.5-9B</code></li>
+              <li>→ HF · <code>Qwen/Qwen3-Omni-30B-A3B-Instruct</code></li>
+            </ul>
+          </div>
+          <div>
+            <h2>In this repo</h2>
+            <ul style="font-size: 0.62rem; color: var(--sub); line-height: 1.95; padding-left: 1rem; list-style: none;">
+              <li>→ <a href="00-training_terms.html" style="color: var(--blue); text-decoration: none;">00 · training terms glossary</a> — interactive</li>
+              <li>→ <a href="project_report.html" style="color: var(--blue); text-decoration: none;">★ · project report · run-02</a> — scoreboard</li>
+              <li>→ <a href="01-collect_data_flow.html" style="color: var(--blue); text-decoration: none;">01 · collect_data flow</a></li>
+              <li>→ <a href="02-transform_data_flow.html" style="color: var(--blue); text-decoration: none;">02 · transform_data flow</a></li>
+              <li>→ <a href="03-config_flow.html" style="color: var(--blue); text-decoration: none;">03 · config flow</a></li>
+              <li>→ <a href="04-train_flow.html" style="color: var(--blue); text-decoration: none;">04 · train flow</a></li>
+              <li>→ <a href="05-evaluate_flow.html" style="color: var(--blue); text-decoration: none;">05 · evaluate flow</a></li>
+              <li>→ <a href="06-vllm_launch_flow.html" style="color: var(--blue); text-decoration: none;">06 · vllm launch flow</a></li>
+              <li>→ <a href="07-vllm_test_flow.html" style="color: var(--blue); text-decoration: none;">07 · vllm test flow</a></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      master finetuning guide · compiled from run-01 & run-02 sessions ·
+      <a href="../index.html">home</a>
+    </footer>
+
+    <script>
+      // reveal on scroll
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("in");
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+    </script>
+  </body>
+</html>
