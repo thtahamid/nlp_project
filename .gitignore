@@ -19,7 +19,7 @@ __pycache__/
 models/
 
 # Logs
-logs/
+#logs/
 
 # Jupyter
 .ipynb_checkpoints/
