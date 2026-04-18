@@ -1,0 +1,9 @@
+{
+  "num_samples": 280,
+  "checkpoint": "checkpoint-1120",
+  "avg_cer": 1.2824,
+  "avg_wer": 1.2767,
+  "exact_match_rate": 0.0,
+  "valid_json_rate": 100.0,
+  "avg_inference_time": 4.52
+}

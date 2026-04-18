@@ -1,0 +1,9 @@
+{
+  "num_samples": 280,
+  "checkpoint": "merged",
+  "avg_cer": 1.4505,
+  "avg_wer": 1.5765,
+  "exact_match_rate": 0.0,
+  "valid_json_rate": 100.0,
+  "avg_inference_time": 3.52
+}
