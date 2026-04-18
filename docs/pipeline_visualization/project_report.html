@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Project Report — Qwen2.5-VL-7B · Arabic HTR (Run 02)</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg: #0a0c10;
+        --surface: rgba(22, 27, 34, 0.85);
+        --surface-2: rgba(22, 27, 34, 0.55);
+        --line: #30363d;
+        --line-soft: #21262d;
+        --text: #c9d1d9;
+        --mute: #484f58;
+        --sub: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --amber: #d29922;
+        --magenta: #bc8cff;
+        --red: #f85149;
+      }
+
+      html { scroll-behavior: smooth; }
+      body {
+        background: var(--bg);
+        font-family: "Fira Code", "Cascadia Code", monospace;
+        color: var(--text);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(48, 54, 61, 0.35) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(48, 54, 61, 0.35) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        top: -20%; left: 50%;
+        width: 900px; height: 600px;
+        transform: translateX(-50%);
+        background: radial-gradient(ellipse at center,
+          rgba(88, 166, 255, 0.08) 0%,
+          transparent 60%);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* ── header ── */
+      header {
+        text-align: center;
+        padding: 3rem 1rem 1rem;
+        position: relative;
+        z-index: 10;
+      }
+      header .tag {
+        font-size: 0.58rem;
+        letter-spacing: 0.28em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.7rem;
+      }
+      header h1 {
+        font-size: 1.25rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--blue);
+        font-weight: 500;
+      }
+      header h1 span.accent { color: var(--amber); }
+      header h1 span.muted  { color: var(--mute); }
+      header .sub {
+        font-size: 0.72rem;
+        color: var(--sub);
+        letter-spacing: 0.06em;
+        margin-top: 0.7rem;
+      }
+      header .meta {
+        font-size: 0.6rem;
+        color: var(--mute);
+        letter-spacing: 0.1em;
+        margin-top: 0.5rem;
+      }
+      .crumb {
+        font-size: 0.6rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-top: 0.9rem;
+      }
+      .crumb a { color: var(--sub); text-decoration: none; transition: color .15s; }
+      .crumb a:hover { color: var(--blue); }
+      .crumb .arrow { color: var(--mute); margin: 0 .4rem; }
+
+      main {
+        position: relative;
+        z-index: 10;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1rem 1.5rem 5rem;
+      }
+
+      /* ── section labels ── */
+      .section-label {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.62rem;
+        letter-spacing: 0.22em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin: 2.6rem 0 1rem;
+      }
+      .section-label::before {
+        content: "";
+        width: 20px; height: 1px; background: var(--line);
+      }
+      .section-label::after {
+        content: "";
+        flex: 1; height: 1px;
+        background: linear-gradient(90deg, var(--line), transparent);
+      }
+      .section-label .n { color: var(--green); }
+
+      /* ── panels ── */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1.4rem 1.5rem;
+        margin-bottom: 1rem;
+        position: relative;
+      }
+      .panel h2 {
+        font-size: 0.8rem;
+        letter-spacing: 0.04em;
+        color: var(--text);
+        font-weight: 500;
+        margin-bottom: 0.4rem;
+      }
+      .panel-sub {
+        font-size: 0.68rem;
+        color: var(--sub);
+        line-height: 1.75;
+        margin-bottom: 1.2rem;
+      }
+      .panel-sub code {
+        color: var(--amber);
+        font-size: 0.94em;
+      }
+
+      /* ── hero pipeline flow ── */
+      .pipeline {
+        margin-top: 1.2rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 1.6rem 1rem 1.4rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .pipeline::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg,
+          transparent, var(--blue), var(--green),
+          var(--amber), var(--magenta), transparent);
+        opacity: 0.5;
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.6rem;
+        align-items: stretch;
+        position: relative;
+      }
+      @media (max-width: 820px) { .flow { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 480px) { .flow { grid-template-columns: 1fr; } }
+
+      .stage {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1rem 0.9rem;
+        position: relative;
+        transition: transform .2s, border-color .2s;
+        cursor: pointer;
+      }
+      .stage:hover { transform: translateY(-3px); border-color: var(--blue); }
+      .stage .stage-n {
+        font-size: 0.52rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+      }
+      .stage .stage-t {
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        margin: 0.4rem 0;
+        color: var(--blue);
+      }
+      .stage.s2 .stage-t { color: var(--green); }
+      .stage.s3 .stage-t { color: var(--amber); }
+      .stage.s4 .stage-t { color: var(--magenta); }
+      .stage .stage-d {
+        font-size: 0.6rem;
+        color: var(--sub);
+        line-height: 1.7;
+      }
+      .stage .stage-v {
+        margin-top: 0.7rem;
+        font-size: 0.58rem;
+        color: var(--mute);
+        letter-spacing: 0.08em;
+      }
+      .stage .stage-v b { color: var(--text); font-weight: 500; }
+
+      /* animated connectors between stages (desktop) */
+      .flow::after {
+        content: "";
+        position: absolute;
+        left: 1%; right: 1%;
+        top: 50%;
+        height: 2px;
+        background: linear-gradient(90deg,
+          transparent 0%,
+          var(--blue) 25%,
+          var(--green) 50%,
+          var(--amber) 75%,
+          var(--magenta) 100%);
+        opacity: 0.25;
+        z-index: -1;
+      }
+      @media (max-width: 820px) { .flow::after { display: none; } }
+
+      .packet {
+        position: absolute;
+        top: 50%;
+        left: -8px;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: var(--blue);
+        box-shadow: 0 0 12px var(--blue);
+        transform: translateY(-50%);
+        animation: travel 4s cubic-bezier(.6,.05,.4,.95) infinite;
+        z-index: 1;
+      }
+      .packet.p2 { animation-delay: 1s; background: var(--green); box-shadow: 0 0 12px var(--green); }
+      .packet.p3 { animation-delay: 2s; background: var(--amber); box-shadow: 0 0 12px var(--amber); }
+      .packet.p4 { animation-delay: 3s; background: var(--magenta); box-shadow: 0 0 12px var(--magenta); }
+      @keyframes travel {
+        0%   { left: -1%;  opacity: 0; }
+        8%   { opacity: 1; }
+        92%  { opacity: 1; }
+        100% { left: 101%; opacity: 0; }
+      }
+      @media (max-width: 820px) { .packet { display: none; } }
+
+      /* ── stat grid ── */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.7rem;
+        margin-top: 0.8rem;
+      }
+      .stat {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--blue);
+        border-radius: 6px;
+        padding: 0.9rem 1rem;
+      }
+      .stat.green   { border-left-color: var(--green); }
+      .stat.amber   { border-left-color: var(--amber); }
+      .stat.magenta { border-left-color: var(--magenta); }
+      .stat.red     { border-left-color: var(--red); }
+      .stat-tag {
+        font-size: 0.54rem;
+        letter-spacing: 0.22em;
+        color: var(--mute);
+        text-transform: uppercase;
+      }
+      .stat-val {
+        font-size: 1.4rem;
+        color: var(--blue);
+        letter-spacing: 0.02em;
+        margin-top: 0.35rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat.green   .stat-val { color: var(--green); }
+      .stat.amber   .stat-val { color: var(--amber); }
+      .stat.magenta .stat-val { color: var(--magenta); }
+      .stat.red     .stat-val { color: var(--red); }
+      .stat-meta {
+        font-size: 0.58rem;
+        color: var(--sub);
+        margin-top: 0.3rem;
+      }
+
+      /* ── dataset schema box ── */
+      .schema {
+        display: grid;
+        grid-template-columns: 1.1fr auto 1fr;
+        gap: 1rem;
+        align-items: center;
+        margin-top: 0.8rem;
+      }
+      @media (max-width: 720px) { .schema { grid-template-columns: 1fr; } }
+      .schema-box {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 0.9rem 1rem;
+        font-size: 0.62rem;
+        line-height: 1.8;
+        color: var(--sub);
+        position: relative;
+        overflow: hidden;
+      }
+      .schema-box .schema-t {
+        font-size: 0.56rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+      }
+      .schema-box code {
+        color: var(--amber);
+        font-size: 0.94em;
+      }
+      .schema-box .k { color: var(--blue); }
+      .schema-box .v { color: var(--green); }
+      .schema-arrow {
+        font-size: 1.1rem;
+        color: var(--mute);
+        text-align: center;
+        animation: arrow-pulse 2.2s ease-in-out infinite;
+      }
+      @keyframes arrow-pulse {
+        0%, 100% { opacity: 0.4; transform: translateX(0); }
+        50%      { opacity: 1;   transform: translateX(4px); }
+      }
+      @media (max-width: 720px) {
+        .schema-arrow { transform: rotate(90deg); }
+      }
+
+      /* ── training loss SVG ── */
+      .loss-wrap {
+        margin-top: 0.9rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 6px;
+        padding: 1rem 1.2rem;
+      }
+      .loss-wrap svg {
+        width: 100%;
+        height: 260px;
+        display: block;
+      }
+      .loss-legend {
+        display: flex;
+        gap: 1.2rem;
+        font-size: 0.58rem;
+        color: var(--sub);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+      }
+      .loss-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+      .loss-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .loss-legend .dot.train { background: var(--blue); }
+      .loss-legend .dot.eval  { background: var(--amber); }
+      .loss-line {
+        fill: none;
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 1200;
+        stroke-dashoffset: 1200;
+      }
+      .loss-line.draw { animation: draw 2.2s ease-out forwards; }
+      .loss-line.train { stroke: var(--blue); }
+      .loss-line.eval  { stroke: var(--amber); stroke-dasharray: 4 3; }
+      @keyframes draw { to { stroke-dashoffset: 0; } }
+      .dot-best {
+        fill: var(--green);
+        r: 0;
+        filter: drop-shadow(0 0 4px var(--green));
+      }
+      .dot-best.show { animation: pop 0.6s ease-out forwards; animation-delay: 2s; }
+      @keyframes pop { to { r: 5; } }
+      .axis text { fill: var(--mute); font-size: 9px; letter-spacing: 0.1em; }
+      .axis line, .axis path { stroke: var(--line-soft); }
+      .grid line { stroke: var(--line-soft); stroke-dasharray: 2 3; }
+
+      /* ── stratified bars ── */
+      .strat {
+        margin-top: 0.9rem;
+        display: grid;
+        gap: 0.6rem;
+      }
+      .bar-row {
+        display: grid;
+        grid-template-columns: 120px 1fr 80px;
+        gap: 0.8rem;
+        align-items: center;
+        font-size: 0.62rem;
+      }
+      @media (max-width: 600px) {
+        .bar-row { grid-template-columns: 90px 1fr 60px; gap: 0.5rem; font-size: 0.58rem; }
+      }
+      .bar-label { color: var(--sub); letter-spacing: 0.06em; }
+      .bar-label b { color: var(--text); }
+      .bar-label .n { color: var(--mute); font-size: 0.92em; }
+      .bar-track {
+        position: relative;
+        height: 18px;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        position: absolute;
+        top: 0; left: 0; bottom: 0;
+        width: 0;
+        background: linear-gradient(90deg, var(--green), var(--blue));
+        transition: width 1.6s cubic-bezier(.2,.7,.3,1);
+      }
+      .bar-fill.med  { background: linear-gradient(90deg, var(--amber), var(--magenta)); }
+      .bar-fill.bad  { background: linear-gradient(90deg, var(--red), var(--magenta)); }
+      .bar-fill::after {
+        content: "";
+        position: absolute;
+        right: 0; top: 0; bottom: 0;
+        width: 1px;
+        background: #fff;
+        opacity: 0.3;
+        box-shadow: 0 0 6px #fff;
+      }
+      .bar-val { color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+      .bar-scale {
+        margin-top: 0.3rem;
+        display: grid;
+        grid-template-columns: 120px 1fr 80px;
+        gap: 0.8rem;
+        font-size: 0.54rem;
+        color: var(--mute);
+        letter-spacing: 0.14em;
+      }
+      @media (max-width: 600px) { .bar-scale { grid-template-columns: 90px 1fr 60px; gap: 0.5rem; } }
+      .bar-scale-ticks {
+        display: flex;
+        justify-content: space-between;
+        padding: 0 2px;
+      }
+
+      /* ── checkpoint compare ── */
+      .compare {
+        margin-top: 0.9rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.7rem;
+      }
+      @media (max-width: 640px) { .compare { grid-template-columns: 1fr; } }
+      .ckpt {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 1rem 1.1rem;
+        position: relative;
+      }
+      .ckpt.winner {
+        border-color: var(--green);
+        box-shadow: 0 0 0 1px rgba(63, 185, 80, 0.08);
+      }
+      .ckpt.winner::before {
+        content: "BEST";
+        position: absolute;
+        top: 0.6rem; right: 0.8rem;
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        color: var(--green);
+        background: rgba(63, 185, 80, 0.12);
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+      }
+      .ckpt-name {
+        font-size: 0.78rem;
+        color: var(--blue);
+        margin-bottom: 0.2rem;
+      }
+      .ckpt.winner .ckpt-name { color: var(--green); }
+      .ckpt-sub {
+        font-size: 0.56rem;
+        color: var(--mute);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 0.8rem;
+      }
+      .ckpt-metrics { display: grid; gap: 0.3rem; }
+      .ckpt-metrics .row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.62rem;
+      }
+      .ckpt-metrics .row .lbl { color: var(--mute); letter-spacing: 0.08em; }
+      .ckpt-metrics .row .v   { color: var(--text); font-variant-numeric: tabular-nums; }
+      .delta {
+        margin-left: 0.4rem;
+        font-size: 0.88em;
+      }
+      .delta.good { color: var(--green); }
+      .delta.bad  { color: var(--red); }
+
+      /* ── insights list ── */
+      .insights {
+        display: grid;
+        gap: 0.7rem;
+        margin-top: 0.8rem;
+      }
+      .insight {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--blue);
+        border-radius: 6px;
+        padding: 0.9rem 1.1rem;
+        font-size: 0.66rem;
+        line-height: 1.8;
+        color: var(--sub);
+      }
+      .insight.g { border-left-color: var(--green); }
+      .insight.a { border-left-color: var(--amber); }
+      .insight.r { border-left-color: var(--red); }
+      .insight.m { border-left-color: var(--magenta); }
+      .insight b { color: var(--text); font-weight: 500; }
+      .insight .ilabel {
+        font-size: 0.56rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+        display: block;
+        margin-bottom: 0.3rem;
+      }
+      .insight.g .ilabel { color: var(--green); }
+      .insight.a .ilabel { color: var(--amber); }
+      .insight.r .ilabel { color: var(--red); }
+      .insight.m .ilabel { color: var(--magenta); }
+
+      /* ── reveal on scroll ── */
+      .reveal {
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.65s ease-out, transform 0.65s ease-out;
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .reveal.delay-1 { transition-delay: 0.08s; }
+      .reveal.delay-2 { transition-delay: 0.16s; }
+      .reveal.delay-3 { transition-delay: 0.24s; }
+
+      footer {
+        text-align: center;
+        font-size: 0.58rem;
+        color: var(--mute);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        padding: 2rem 1rem 3rem;
+        position: relative;
+        z-index: 10;
+      }
+      footer a { color: var(--sub); text-decoration: none; transition: color .15s; }
+      footer a:hover { color: var(--blue); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="tag">// MAI 656 · Natural Language Processing · Spring 2026</div>
+      <h1>Project Report <span class="muted">—</span> <span class="accent">Arabic HTR</span></h1>
+      <div class="sub">Fine-tuning Qwen2.5-VL-7B with LoRA · Run 02</div>
+      <div class="meta">Canadian University Dubai · 2026-04-18</div>
+      <div class="crumb">
+        <a href="00-training_terms.html">terms</a>
+        <span class="arrow">›</span>
+        <a href="01-collect_data_flow.html">collect</a>
+        <span class="arrow">›</span>
+        <a href="02-transform_data_flow.html">transform</a>
+        <span class="arrow">›</span>
+        <a href="04-train_flow.html">train</a>
+        <span class="arrow">›</span>
+        <a href="05-evaluate_flow.html">evaluate</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ─────────────────────── PIPELINE OVERVIEW ─────────────────────── -->
+      <div class="section-label"><span class="n">//</span> the pipeline · one glance</div>
+      <div class="pipeline reveal">
+        <div class="flow">
+          <div class="packet"></div>
+          <div class="packet p2"></div>
+          <div class="packet p3"></div>
+          <div class="packet p4"></div>
+
+          <div class="stage s1">
+            <div class="stage-n">stage 01</div>
+            <div class="stage-t">Collect</div>
+            <div class="stage-d">Arabic handwriting images + GPT-5.4-mini reference transcriptions.</div>
+            <div class="stage-v"><b>1,400</b> image/label pairs</div>
+          </div>
+          <div class="stage s2">
+            <div class="stage-n">stage 02</div>
+            <div class="stage-t">Transform</div>
+            <div class="stage-d">OpenAI-chat JSONL · base64-embedded images · 80/20 split.</div>
+            <div class="stage-v"><b>1,120</b> train · <b>280</b> eval</div>
+          </div>
+          <div class="stage s3">
+            <div class="stage-n">stage 03</div>
+            <div class="stage-t">Train</div>
+            <div class="stage-d">Qwen2.5-VL-7B + LoRA (r=32, α=64) · 4-bit NF4 · 3 epochs on A10G.</div>
+            <div class="stage-v"><b>1,680</b> steps · ~44 min</div>
+          </div>
+          <div class="stage s4">
+            <div class="stage-n">stage 04</div>
+            <div class="stage-t">Evaluate</div>
+            <div class="stage-d">Full 280-sample eval · CER/WER via jiwer · stratified by reference length.</div>
+            <div class="stage-v">best ckpt: <b>1120</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────────────────── STAGE 1+2 — DATA ─────────────────────── -->
+      <div class="section-label"><span class="n">01 · 02</span> data collection & transformation</div>
+      <section class="panel reveal">
+        <h2>From scanned pages to model-ready JSONL</h2>
+        <p class="panel-sub">
+          Arabic handwriting images are paired with transcriptions generated by
+          <code>gpt-5.4-mini</code> (our reference labels — not gold-human labels).
+          Each sample is then reshaped into Qwen's chat format, with the image
+          embedded as a base64 data URL so the entire dataset is self-contained
+          in two JSONL files.
+        </p>
+
+        <div class="schema">
+          <div class="schema-box">
+            <div class="schema-t">raw sample (stage 01)</div>
+            <code>{
+  <span class="k">"image"</span>: <span class="v">"page_0423.jpg"</span>,
+  <span class="k">"transcription"</span>: <span class="v">"حوار بين …"</span>
+}</code>
+          </div>
+          <div class="schema-arrow">→</div>
+          <div class="schema-box">
+            <div class="schema-t">chat sample (stage 02)</div>
+            <code>{
+  <span class="k">"messages"</span>: [
+    { <span class="k">"role"</span>: <span class="v">"system"</span>, ... },
+    { <span class="k">"role"</span>: <span class="v">"user"</span>,
+      <span class="k">"content"</span>: [
+        { <span class="k">"type"</span>: <span class="v">"image_url"</span>,
+          <span class="k">"image_url"</span>: <span class="v">"data:image/…"</span> },
+        { <span class="k">"type"</span>: <span class="v">"text"</span>,
+          <span class="k">"text"</span>: <span class="v">"Transcribe…"</span> }]
+    },
+    { <span class="k">"role"</span>: <span class="v">"assistant"</span>,
+      <span class="k">"content"</span>: <span class="v">"{\"transcription\":…}"</span> }
+  ]
+}</code>
+          </div>
+        </div>
+
+        <div class="stats" style="margin-top: 1.1rem;">
+          <div class="stat"><div class="stat-tag">Total samples</div><div class="stat-val" data-count="1400">0</div><div class="stat-meta">image / label pairs</div></div>
+          <div class="stat green"><div class="stat-tag">Train split</div><div class="stat-val" data-count="1120">0</div><div class="stat-meta">80% of dataset</div></div>
+          <div class="stat amber"><div class="stat-tag">Eval split</div><div class="stat-val" data-count="280">0</div><div class="stat-meta">20% held-out</div></div>
+          <div class="stat magenta"><div class="stat-tag">Ref chars (eval)</div><div class="stat-val">5 – 128</div><div class="stat-meta">median 61</div></div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────── STAGE 3 — TRAINING ─────────────────────── -->
+      <div class="section-label"><span class="n">03</span> training · lora fine-tune</div>
+      <section class="panel reveal">
+        <h2>LoRA on a 4-bit base — 44 min on one A10G</h2>
+        <p class="panel-sub">
+          The base <code>Qwen/Qwen2.5-VL-7B-Instruct</code> is loaded in 4-bit
+          NF4 with bf16 compute. A LoRA adapter (<code>r=32</code>, <code>α=64</code>,
+          <code>dropout=0.05</code>) attaches to all attention + MLP projections —
+          ~0.5% of parameters get trained, the rest are frozen.
+          Three epochs, cosine schedule, <code>effective_batch=2</code>.
+        </p>
+
+        <div class="stats">
+          <div class="stat"><div class="stat-tag">Base model</div><div class="stat-val" style="font-size:0.95rem;">Qwen2.5-VL-7B</div><div class="stat-meta">4-bit NF4 · bf16 compute</div></div>
+          <div class="stat green"><div class="stat-tag">LoRA rank</div><div class="stat-val">32</div><div class="stat-meta">α = 64 · dropout 0.05</div></div>
+          <div class="stat amber"><div class="stat-tag">Steps</div><div class="stat-val" data-count="1680">0</div><div class="stat-meta">3 epochs · 560 steps each</div></div>
+          <div class="stat magenta"><div class="stat-tag">Wall-clock</div><div class="stat-val">44 min</div><div class="stat-meta">~38 steps/min on A10G</div></div>
+        </div>
+
+        <div class="loss-wrap" style="margin-top: 1.3rem;">
+          <div class="loss-legend">
+            <span><span class="dot train"></span> train loss</span>
+            <span><span class="dot eval"></span> eval loss (end of epoch)</span>
+            <span style="color: var(--green);">● best checkpoint (step 1120)</span>
+          </div>
+          <svg id="loss-svg" viewBox="0 0 600 260" preserveAspectRatio="none">
+            <!-- grid (broken-axis: y=40→L=8, y=80→L=2 [break], y=230→L=1.4) -->
+            <g class="grid">
+              <line x1="40" x2="580" y1="80"  y2="80"  />
+              <line x1="40" x2="580" y1="155" y2="155" />
+              <line x1="40" x2="580" y1="230" y2="230" />
+            </g>
+            <!-- broken-axis indicator -->
+            <g class="axis">
+              <path d="M 36 80 l 6 -4 l -6 -4" fill="none" stroke="#484f58" stroke-width="1" />
+              <path d="M 44 80 l -6 -4 l  6 -4" fill="none" stroke="#484f58" stroke-width="1" />
+            </g>
+            <!-- axes -->
+            <g class="axis">
+              <line x1="40" x2="580" y1="230" y2="230" />
+              <line x1="40" x2="40"  y1="30"  y2="230" />
+              <text x="36" y="44"  text-anchor="end">8.0</text>
+              <text x="36" y="90"  text-anchor="end">2.0</text>
+              <text x="36" y="159" text-anchor="end">1.7</text>
+              <text x="36" y="234" text-anchor="end">1.4</text>
+              <text x="40"  y="250" text-anchor="start">step 0</text>
+              <text x="310" y="250" text-anchor="middle">840</text>
+              <text x="580" y="250" text-anchor="end">1680</text>
+            </g>
+            <!-- epoch-boundary markers -->
+            <g class="axis">
+              <line x1="220" x2="220" y1="30" y2="230" stroke-dasharray="2 3" opacity="0.4" />
+              <line x1="400" x2="400" y1="30" y2="230" stroke-dasharray="2 3" opacity="0.4" />
+              <text x="220" y="26" text-anchor="middle" fill="#8b949e">EP 1</text>
+              <text x="400" y="26" text-anchor="middle" fill="#8b949e">EP 2</text>
+              <text x="580" y="26" text-anchor="end"    fill="#8b949e">EP 3</text>
+            </g>
+
+            <!-- train-loss polyline (broken-axis scale) -->
+            <polyline id="train-line" class="loss-line train"
+              points="40,39.9 85,122.5 130,190 175,155 220,172.5 265,172.5 310,212.5 355,167.5 400,175 445,210 490,217.5 535,212.5 580,215" />
+            <!-- eval at epoch boundaries -->
+            <polyline id="eval-line" class="loss-line eval"
+              points="220,171.2 400,173.8 580,170.3" />
+            <!-- markers for eval points -->
+            <circle cx="220" cy="171.2" r="3" fill="#d29922" />
+            <circle cx="400" cy="173.8" r="3" fill="#d29922" />
+            <circle cx="580" cy="170.3" r="3" fill="#d29922" />
+            <!-- best ckpt marker -->
+            <circle id="best-dot" class="dot-best" cx="400" cy="173.8" />
+
+            <!-- labels -->
+            <g>
+              <text x="210" y="165" fill="#d29922" font-size="9" letter-spacing="0.08em" text-anchor="end">1.6350</text>
+              <text x="406" y="186" fill="#3fb950" font-size="9" letter-spacing="0.08em">★ 1.6248</text>
+              <text x="576" y="164" fill="#d29922" font-size="9" letter-spacing="0.08em" text-anchor="end">1.6387 ↑</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="insights" style="margin-top: 1rem;">
+          <div class="insight g">
+            <span class="ilabel">Phase 1 · warm-up</span>
+            Train loss drops <b>8.01 → 1.63</b> in the first 560 steps — the model
+            acquires the obvious structure (Arabic JSON transcription format) fast.
+          </div>
+          <div class="insight a">
+            <span class="ilabel">Phase 2 · fitting · best ckpt</span>
+            Eval loss bottoms out at <b>1.6248</b> at the end of epoch 2
+            (<code>checkpoint-1120</code>). Train and eval are still close —
+            the model is generalizing.
+          </div>
+          <div class="insight r">
+            <span class="ilabel">Phase 3 · mild overfit</span>
+            Train loss keeps dropping to <b>1.46</b> but eval drifts back up to
+            <b>1.6387</b>. Train/eval gap widens. Epoch 3 is memorization,
+            not learning.
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────── STAGE 4 — EVALUATION ─────────────────────── -->
+      <div class="section-label"><span class="n">04</span> evaluation · 280-sample held-out</div>
+      <section class="panel reveal">
+        <h2>Checkpoint selection: best eval-loss wins on CER/WER too</h2>
+        <p class="panel-sub">
+          Both checkpoints were evaluated on the full 280-sample eval set
+          with <code>jiwer</code> CER/WER, greedy decoding,
+          <code>stop_strings=['"}']</code>, and JSON-prefix forcing.
+          Checkpoint-1120 — the epoch-2 checkpoint flagged by training — beats
+          the merged final adapter on every quality metric.
+        </p>
+
+        <div class="compare">
+          <div class="ckpt">
+            <div class="ckpt-name">checkpoint-1680</div>
+            <div class="ckpt-sub">merged final · end of epoch 3</div>
+            <div class="ckpt-metrics">
+              <div class="row"><span class="lbl">avg CER</span>  <span class="v">1.4505</span></div>
+              <div class="row"><span class="lbl">avg WER</span>  <span class="v">1.5765</span></div>
+              <div class="row"><span class="lbl">exact match</span><span class="v">0.0%</span></div>
+              <div class="row"><span class="lbl">valid JSON</span> <span class="v">100.0%</span></div>
+              <div class="row"><span class="lbl">time / sample</span><span class="v">3.52 s</span></div>
+            </div>
+          </div>
+          <div class="ckpt winner">
+            <div class="ckpt-name">checkpoint-1120</div>
+            <div class="ckpt-sub">best eval-loss · end of epoch 2</div>
+            <div class="ckpt-metrics">
+              <div class="row"><span class="lbl">avg CER</span>  <span class="v">1.2824<span class="delta good">−11.6%</span></span></div>
+              <div class="row"><span class="lbl">avg WER</span>  <span class="v">1.2767<span class="delta good">−19.0%</span></span></div>
+              <div class="row"><span class="lbl">exact match</span><span class="v">0.0%</span></div>
+              <div class="row"><span class="lbl">valid JSON</span> <span class="v">100.0%</span></div>
+              <div class="row"><span class="lbl">time / sample</span><span class="v">4.52 s<span class="delta bad">+1.0 s</span></span></div>
+            </div>
+          </div>
+        </div>
+
+        <p class="panel-sub" style="margin-top: 1.3rem; margin-bottom: 0.5rem;">
+          The headline CER <b style="color:var(--text);">1.28 is a mixture of three regimes.</b>
+          Stratifying by reference length tells the real story — a tiny
+          2.9% tail of short references dominates the average, while long
+          references sit in a sane error band below 1.0.
+        </p>
+
+        <div class="strat">
+          <div class="bar-row">
+            <div class="bar-label"><b>long</b> <span class="n">(&gt; 60)</span></div>
+            <div class="bar-track"><div class="bar-fill" data-pct="8.29" title="mean CER 0.829"></div></div>
+            <div class="bar-val">0.829</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label"><b>medium</b> <span class="n">(11–60)</span></div>
+            <div class="bar-track"><div class="bar-fill med" data-pct="13.30" title="mean CER 1.330"></div></div>
+            <div class="bar-val">1.330</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label"><b>short</b> <span class="n">(≤ 10)</span></div>
+            <div class="bar-track"><div class="bar-fill bad" data-pct="89.78" title="mean CER 8.978"></div></div>
+            <div class="bar-val">8.978</div>
+          </div>
+          <div class="bar-scale">
+            <div></div>
+            <div class="bar-scale-ticks">
+              <span>0</span><span>2</span><span>5</span><span>8</span><span>10+ CER</span>
+            </div>
+            <div></div>
+          </div>
+        </div>
+
+        <div class="stats" style="margin-top: 1.2rem;">
+          <div class="stat"><div class="stat-tag">n · long refs</div><div class="stat-val" data-count="149">0</div><div class="stat-meta">53.2% · sane CER &lt; 1</div></div>
+          <div class="stat amber"><div class="stat-tag">n · medium</div><div class="stat-val" data-count="123">0</div><div class="stat-meta">43.9% · mild over-production</div></div>
+          <div class="stat red"><div class="stat-tag">n · short refs</div><div class="stat-val" data-count="8">0</div><div class="stat-meta">2.9% · drives the headline mean</div></div>
+          <div class="stat green"><div class="stat-tag">valid JSON</div><div class="stat-val">100%</div><div class="stat-meta">prefix + stop_strings</div></div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────── FINDINGS ─────────────────────── -->
+      <div class="section-label"><span class="n">//</span> findings · what the numbers say</div>
+      <section class="panel reveal">
+        <h2>Three things the run actually proved</h2>
+        <p class="panel-sub">
+          Beyond the headline CER, the evaluation surfaced specific,
+          well-characterized failure modes and at least one positive signal
+          worth building on next iteration.
+        </p>
+
+        <div class="insights">
+          <div class="insight g">
+            <span class="ilabel">✓ pipeline works end-to-end</span>
+            Vision input reaches the decoder (base64 decode + Qwen chat template),
+            JSON output is parseable <b>100% of the time</b>,
+            KV cache gives 11× latency vs. Run 01, and epoch-2 rollback validated
+            the overfit hypothesis from the loss curve.
+          </div>
+          <div class="insight a">
+            <span class="ilabel">△ length bias dominates the mean</span>
+            Training references cluster long (median 61 chars) so the model
+            learned an implicit "transcriptions are ~60 chars" prior. On short
+            references it keeps generating, inflating CER via insertions rather
+            than substitutions.
+          </div>
+          <div class="insight r">
+            <span class="ilabel">✗ LM prior leaks on weak vision</span>
+            When the vision signal is ambiguous, the decoder falls back to a
+            <b>canned Qwen-pretraining phrase</b> (a 17-word Arabic sentence about
+            negotiations) — the phrase has <b>0 matches</b> in our training data,
+            so it's a base-model prior, not a memorized artifact.
+          </div>
+          <div class="insight m">
+            <span class="ilabel">→ long-ref CER 0.829 is the real baseline</span>
+            On references &gt; 60 chars, median and mean CER both sit at 0.829
+            with p90 at 0.903 — tight distribution, no catastrophic samples.
+            That's the honest quality number for the next iteration to beat.
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────────────── NEXT ─────────────────────── -->
+      <div class="section-label"><span class="n">//</span> next iteration</div>
+      <section class="panel reveal">
+        <h2>What Run 03 should change</h2>
+        <p class="panel-sub">
+          The run-02 failure modes point to concrete, low-cost interventions.
+          Ordered by expected return on effort:
+        </p>
+        <div class="insights">
+          <div class="insight g">
+            <span class="ilabel">1 · balance reference-length distribution</span>
+            Audit <code>data/train/train.jsonl</code> for short-reference coverage.
+            If &lt; 5%, augment with single-word samples so the model learns to
+            terminate early instead of emitting its LM fallback.
+          </div>
+          <div class="insight a">
+            <span class="ilabel">2 · stop earlier · report honestly</span>
+            Keep <code>stop_strings=['"}']</code>, report stratified CER as the
+            primary metric (short / med / long) instead of a single mean,
+            and optionally clamp to <code>min(CER, 1.0)</code> for headlines.
+          </div>
+          <div class="insight m">
+            <span class="ilabel">3 · drop epoch 3 · add regularization</span>
+            Train for 2 epochs (not 3) given the overfit signal; add
+            <code>weight_decay=0.01</code> or raise LoRA dropout to 0.1 if a
+            third epoch is retained.
+          </div>
+          <div class="insight">
+            <span class="ilabel">4 · push long-ref CER below 0.5</span>
+            With balanced data and proper stopping, the goal for Run 03 is
+            bringing the long-ref bucket from <b>0.829 → &lt; 0.5</b>; that's
+            the regime where exact-match starts becoming non-zero.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      run 02 · <a href="../../logs/run-2/01_training_run.md">training log</a>
+      · <a href="../../logs/run-2/02_evaluation_run.md">evaluation log</a>
+      · <a href="../../logs/run-2/eval_results_checkpoint-1120.json">eval json</a>
+    </footer>
+
+    <script>
+      // ── count-up for stat values ──────────────────────────
+      const easeOut = t => 1 - Math.pow(1 - t, 3);
+      function countUp(el, target, duration = 1400) {
+        const start = performance.now();
+        const from = 0;
+        function tick(now) {
+          const t = Math.min(1, (now - start) / duration);
+          const v = Math.round(from + (target - from) * easeOut(t));
+          el.textContent = v.toLocaleString('en-US');
+          if (t < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      // ── reveal observer ──────────────────────────────────
+      const io = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (!e.isIntersecting) return;
+          e.target.classList.add('in');
+
+          // trigger count-ups inside this element
+          e.target.querySelectorAll('[data-count]').forEach(el => {
+            if (el.dataset.done) return;
+            el.dataset.done = '1';
+            countUp(el, +el.dataset.count);
+          });
+
+          // animate stratified bars (max tick is 10)
+          e.target.querySelectorAll('.bar-fill[data-pct]').forEach(el => {
+            if (el.dataset.done) return;
+            el.dataset.done = '1';
+            const pct = Math.min(100, +el.dataset.pct);
+            requestAnimationFrame(() => { el.style.width = pct + '%'; });
+          });
+
+          // trigger loss-curve draw animation
+          if (e.target.id === 'loss-svg-wrap' ||
+              e.target.querySelector('#loss-svg')) {
+            const svg = e.target.querySelector('#loss-svg') || e.target;
+            svg.querySelectorAll('.loss-line').forEach((l, i) => {
+              l.classList.add('draw');
+              l.style.animationDelay = (i * 0.6) + 's';
+            });
+            const best = svg.querySelector('#best-dot');
+            if (best) best.classList.add('show');
+          }
+
+          io.unobserve(e.target);
+        });
+      }, { threshold: 0.18, rootMargin: '0px 0px -40px 0px' });
+
+      document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+    </script>
+  </body>
+</html>

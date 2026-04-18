@@ -387,6 +387,7 @@
       .term.amber  { border-left-color: var(--amber); }
       .term.magenta{ border-left-color: var(--magenta); }
       .term.red    { border-left-color: var(--red); }
+      .term.blue   { border-left-color: var(--blue); }
       .term-name {
         font-size: 0.78rem;
         color: var(--blue);
@@ -397,6 +398,7 @@
       .term.amber .term-name  { color: var(--amber); }
       .term.magenta .term-name{ color: var(--magenta); }
       .term.red   .term-name  { color: var(--red); }
+      .term.blue  .term-name  { color: var(--blue); }
 
       .term-formal {
         font-size: 0.58rem;
@@ -1308,10 +1310,13 @@
           <div class="term-name">CER · WER</div>
           <div class="term-formal">character / word error rate</div>
           <div class="term-body">
-            Edit-distance ÷ reference-length. Range [0, 1] when computed
-            with <code>jiwer</code>. Lower is better. Used post-training,
-            never as the optimization target.
+            <code>(Substitutions + Deletions + Insertions) / N_reference</code>.
+            Lower is better, 0 is perfect. <b>Can exceed 1.0</b> when the
+            hypothesis is much longer than the reference — insertions
+            simply outnumber reference tokens. Used post-training, never as
+            the optimization target.
           </div>
+          <div class="term-eg"><b>Pitfall:</b> a short 5-char ref vs. an 85-char hallucination ⇒ CER ≈ 16</div>
         </div>
 
         <div class="term green reveal delay-4">
@@ -1332,6 +1337,101 @@
             command gives the same numbers. Essential for fair experiments.
           </div>
           <div class="term-eg"><b>Convention:</b> 42 (the obvious one)</div>
+        </div>
+
+        <div class="term blue reveal delay-5">
+          <div class="term-name">stop_strings</div>
+          <div class="term-formal">early-termination trigger at inference</div>
+          <div class="term-body">
+            A list of substrings that halt <code>model.generate()</code> the
+            moment any of them appears in the decoded stream. Cheapest way
+            to cap over-production when you know the valid output shape —
+            e.g. stopping at <code>"}</code> when the task returns JSON.
+            Saves wall-clock <b>and</b> stops trailing hallucinations from
+            tanking CER/WER.
+          </div>
+          <div class="term-eg"><b>Usage:</b> <code>generate(..., stop_strings=['"}'], tokenizer=tok)</code></div>
+        </div>
+
+        <div class="term amber reveal delay-5">
+          <div class="term-name">JSON-prefix forcing</div>
+          <div class="term-formal">prompt-side structural scaffolding</div>
+          <div class="term-body">
+            Append the opening of the expected JSON (e.g.
+            <code>{"transcription":"</code>) to the prompt before generation.
+            The model then only has to complete the value and close the
+            braces, which turns a weak "emit JSON" instruction into a near-
+            guaranteed parseable output. Pairs naturally with
+            <code>stop_strings=['"}']</code>.
+          </div>
+          <div class="term-eg"><b>Effect:</b> <code>valid_json_rate</code> → 100% without any format fine-tuning</div>
+        </div>
+
+        <div class="term red reveal delay-5">
+          <div class="term-name">LM prior / fallback</div>
+          <div class="term-formal">pretraining leak when conditioning is weak</div>
+          <div class="term-body">
+            When the task-specific signal (e.g. a handwritten image) is
+            ambiguous or low-information, the decoder's next-token
+            distribution is dominated by the base model's pretraining prior
+            and it emits a <b>high-probability generic sentence</b> instead
+            of the true answer. Looks like hallucination but is actually the
+            LM doing its default job.
+          </div>
+          <div class="term-eg"><b>Symptom:</b> the same canned phrase repeats across many failed samples, and grep-ing the phrase against <code>train.jsonl</code> returns zero matches</div>
+        </div>
+
+        <div class="term amber reveal delay-5">
+          <div class="term-name">length bias</div>
+          <div class="term-formal">model inherits ref-length distribution</div>
+          <div class="term-body">
+            If training targets cluster around, say, 60 characters, the
+            model learns an implicit "a transcription should be ~60 chars"
+            prior. On short-reference samples it keeps generating past the
+            true answer because stopping earlier has low probability under
+            that prior. Fix at the data layer (balance short/long examples)
+            or at inference (<code>stop_strings</code>, length penalty).
+          </div>
+          <div class="term-eg"><b>Watch:</b> <code>len(ref)</code> histogram on train vs. eval</div>
+        </div>
+
+        <div class="term magenta reveal delay-5">
+          <div class="term-name">repetition_penalty</div>
+          <div class="term-formal">penalty on already-emitted tokens</div>
+          <div class="term-body">
+            Multiplier &gt; 1.0 that down-weights the logits of tokens that
+            have already appeared in the sequence. Cheap guard against
+            degenerate loops ("…مثل الحوار مثل الحوار مثل…"). Too high
+            (&gt; 1.3) makes the output feel unnatural — 1.05–1.15 is the
+            usual sweet spot.
+          </div>
+          <div class="term-eg"><b>Typical:</b> 1.1 with greedy decoding</div>
+        </div>
+
+        <div class="term magenta reveal delay-5">
+          <div class="term-name">no_repeat_ngram_size</div>
+          <div class="term-formal">hard block on repeated n-grams</div>
+          <div class="term-body">
+            Forbids any n-gram of length N from appearing twice in the
+            same generation. Stronger than <code>repetition_penalty</code>
+            — useful when a model has a specific phrase it likes to loop
+            on. Complements rather than replaces EOS-based stopping.
+          </div>
+          <div class="term-eg"><b>Usage:</b> <code>no_repeat_ngram_size=6</code> blocks any 6-token loop</div>
+        </div>
+
+        <div class="term blue reveal delay-5">
+          <div class="term-name">KV cache</div>
+          <div class="term-formal">reuse attention keys/values at inference</div>
+          <div class="term-body">
+            At each generation step, the transformer caches the keys and
+            values for all previous tokens so it only computes attention
+            for the <em>new</em> token. Single biggest per-token speedup at
+            inference. Training with <code>gradient_checkpointing=True</code>
+            disables <code>use_cache</code> — remember to flip it back on
+            before eval: <code>model.config.use_cache = True</code>.
+          </div>
+          <div class="term-eg"><b>Effect:</b> O(N²) → O(N) per-token, often 5–10× faster</div>
         </div>
       </section>
     </main>
