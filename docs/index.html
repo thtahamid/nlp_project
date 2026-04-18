@@ -613,6 +613,74 @@
         line-height: 1.65;
       }
 
+      /* ── TRAINING STACK ── */
+      .stack {
+        display: grid;
+        grid-template-columns: 200px 180px 1fr;
+        gap: 0;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      @media (max-width: 720px) {
+        .stack { grid-template-columns: 1fr; }
+        .stack .row.head { display: none; }
+        .stack .row { padding: 0.9rem 1rem; border-bottom: 1px solid var(--line-soft); }
+        .stack .row > div { padding: 0; }
+        .stack .row .layer::before { content: "layer · "; color: var(--mute); letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.54rem; }
+        .stack .row .lib::before   { content: "lib · ";   color: var(--mute); letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.54rem; }
+        .stack .row .role::before  { content: "role · ";  color: var(--mute); letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.54rem; }
+      }
+      .stack .row {
+        display: contents;
+      }
+      @media (max-width: 720px) {
+        .stack .row { display: block; }
+      }
+      .stack .row > div {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--line-soft);
+        font-size: 0.66rem;
+        line-height: 1.6;
+      }
+      .stack .row.head > div {
+        font-size: 0.56rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--mute);
+        background: var(--surface-2);
+      }
+      .stack .row:last-child > div { border-bottom: 0; }
+      .stack .layer { color: var(--sub); }
+      .stack .lib   { color: var(--blue); }
+      .stack .lib .tag {
+        font-size: 0.54rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--mute);
+        margin-left: 0.4rem;
+      }
+      .stack .role  { color: var(--text); }
+      .stack .role code { color: var(--amber); font-size: 0.95em; }
+      .stack .row.accent.blue    .lib { color: var(--blue); }
+      .stack .row.accent.green   .lib { color: var(--green); }
+      .stack .row.accent.amber   .lib { color: var(--amber); }
+      .stack .row.accent.magenta .lib { color: var(--magenta); }
+      .stack .row.accent.red     .lib { color: var(--red); }
+      .stack-note {
+        margin-top: 0.8rem;
+        font-size: 0.62rem;
+        color: var(--sub);
+        line-height: 1.7;
+        padding: 0.9rem 1rem;
+        background: var(--surface-2);
+        border-left: 2px solid var(--mute);
+        border-radius: 0 4px 4px 0;
+      }
+      .stack-note b { color: var(--text); font-weight: 500; }
+      .stack-note code { color: var(--amber); }
+
       /* ── VISUALIZATIONS GRID (existing cards) ── */
       .grid {
         display: grid;
@@ -1016,6 +1084,52 @@
             One binary. LoRA swapped in at load. Same request shape as the
             OpenAI SDK — drop-in replacement.
           </div>
+        </div>
+      </section>
+
+      <!-- ── TRAINING STACK ── -->
+      <div class="section-label"><span class="n">//</span> the training stack · pytorch, not keras</div>
+      <section>
+        <div class="stack">
+          <div class="row head">
+            <div>Layer</div><div>Library</div><div>Role</div>
+          </div>
+          <div class="row accent blue">
+            <div class="layer">Tensor math · autograd</div>
+            <div class="lib">PyTorch <span class="tag">torch</span></div>
+            <div class="role">Forward &amp; backward passes, <code>bfloat16</code> compute, <code>inference_mode()</code>, CUDA kernels.</div>
+          </div>
+          <div class="row accent green">
+            <div class="layer">Model &amp; trainer loop</div>
+            <div class="lib">HuggingFace <span class="tag">transformers</span></div>
+            <div class="role"><code>Qwen2_5_VLForConditionalGeneration</code>, <code>Trainer</code>, <code>TrainingArguments</code>, <code>AutoProcessor</code>.</div>
+          </div>
+          <div class="row accent magenta">
+            <div class="layer">LoRA adapter</div>
+            <div class="lib">PEFT <span class="tag">peft</span></div>
+            <div class="role"><code>PeftModel</code>, <code>LoraConfig</code> (r=32, α=64, dropout=0.05) — trains ~0.5% of parameters.</div>
+          </div>
+          <div class="row accent amber">
+            <div class="layer">4-bit quantization</div>
+            <div class="lib">bitsandbytes <span class="tag">NF4</span></div>
+            <div class="role">Double-quant NF4 + bf16 compute — fits the 7 B base in A10G's 23 GB.</div>
+          </div>
+          <div class="row accent blue">
+            <div class="layer">Device plumbing</div>
+            <div class="lib">accelerate</div>
+            <div class="role"><code>device_map='auto'</code>, mixed-precision, distributed-ready (single GPU here).</div>
+          </div>
+          <div class="row accent red">
+            <div class="layer">Eval metrics</div>
+            <div class="lib">jiwer</div>
+            <div class="role">CER / WER as <code>(S+D+I) / N_ref</code> — standard HTR scoring at eval time.</div>
+          </div>
+        </div>
+        <div class="stack-note">
+          <b>CUDA is not a framework</b> — it's NVIDIA's GPU runtime
+          (<code>CUDA 13.0</code> on the A10G). PyTorch compiles kernels
+          against it; you never call CUDA directly in the notebook.
+          <b>TensorFlow / Keras</b> are not used anywhere in this project.
         </div>
       </section>
 
