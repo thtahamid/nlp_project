@@ -1081,8 +1081,10 @@
           <div class="concept-tag">Runtime · vLLM</div>
           <div class="concept-title">OpenAI-compatible</div>
           <div class="concept-desc">
-            One binary. LoRA swapped in at load. Same request shape as the
-            OpenAI SDK — drop-in replacement.
+            One server. LoRA adapters registered at startup, selected per
+            request by <code>model</code> name. OpenAI-SDK-compatible at the
+            wire — vLLM translates <code>image_url</code> data-URLs into
+            Qwen's internal processor shape for you.
           </div>
         </div>
       </section>
@@ -1138,6 +1140,17 @@
         <span class="n">//</span> flow visualizations
       </div>
       <section class="grid">
+        <a class="card" href="pipeline_visualization/09-architecture_viz.html">
+          <div class="card-num">★ / architecture</div>
+          <div class="card-title">Architecture Visualization</div>
+          <div class="card-desc">
+            Qwen2.5-VL-7B · Qwen3.5-4B / 9B · Qwen3-Omni 30B-A3B side-by-side ·
+            bit-width primer (fp32 / bf16 / int8 / nf4) · rank-32 LoRA matrix
+            decomposition · component param blocks · VRAM budget bars.
+          </div>
+          <span class="card-tag">Arch</span>
+        </a>
+
         <a class="card" href="pipeline_visualization/08-finetuning_guide.html">
           <div class="card-num">★ / master guide</div>
           <div class="card-title">Master Finetuning Guide — Qwen VL</div>

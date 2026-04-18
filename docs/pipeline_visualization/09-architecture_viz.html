@@ -1,0 +1,1517 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Architecture Viz — Qwen VL · 3.5 · Omni · LoRA</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg: #0a0c10;
+        --surface: rgba(22, 27, 34, 0.85);
+        --surface-2: rgba(22, 27, 34, 0.55);
+        --line: #30363d;
+        --line-soft: #21262d;
+        --text: #c9d1d9;
+        --mute: #484f58;
+        --sub: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --amber: #d29922;
+        --magenta: #bc8cff;
+        --red: #f85149;
+        --teal: #39c5cf;
+        --orange: #ff8c42;
+      }
+
+      body {
+        background: var(--bg);
+        font-family: "Fira Code", "Cascadia Code", monospace;
+        color: var(--text);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      body::before {
+        content: "";
+        position: fixed; inset: 0;
+        background-image:
+          linear-gradient(rgba(48, 54, 61, 0.4) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(48, 54, 61, 0.4) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      header {
+        text-align: center;
+        padding: 2.8rem 1rem 1rem;
+        position: relative;
+        z-index: 10;
+      }
+      header .tag {
+        font-size: 0.54rem;
+        letter-spacing: 0.24em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.6rem;
+      }
+      header h1 {
+        font-size: 1.25rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--blue);
+      }
+      header h1 .accent { color: var(--amber); }
+      header h1 .muted  { color: var(--mute); font-weight: 400; }
+      header .sub {
+        font-size: 0.7rem;
+        color: var(--sub);
+        letter-spacing: 0.04em;
+        margin-top: 0.5rem;
+      }
+      .crumb {
+        font-size: 0.6rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-top: 0.8rem;
+      }
+      .crumb a { color: var(--sub); text-decoration: none; transition: color .15s; }
+      .crumb a:hover { color: var(--blue); }
+      .crumb .arrow { color: var(--mute); margin: 0 .4rem; }
+
+      main {
+        position: relative;
+        z-index: 10;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1rem 1.5rem 4rem;
+      }
+
+      .section-label {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.62rem;
+        letter-spacing: 0.22em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin: 2.4rem 0 0.9rem;
+      }
+      .section-label::before {
+        content: ""; width: 20px; height: 1px; background: var(--line);
+      }
+      .section-label::after {
+        content: "";
+        flex: 1; height: 1px;
+        background: linear-gradient(90deg, var(--line), transparent);
+        animation: sweep 6s ease-in-out infinite;
+      }
+      .section-label .n { color: var(--green); }
+      @keyframes sweep {
+        0%, 100% { opacity: .55; }
+        50% { opacity: 1; }
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1.4rem 1.6rem;
+        margin-bottom: 1rem;
+      }
+      .panel h2 {
+        font-size: 0.88rem;
+        letter-spacing: 0.04em;
+        color: var(--text);
+        font-weight: 500;
+        margin-bottom: 0.4rem;
+      }
+      .panel h3 {
+        font-size: 0.72rem;
+        color: var(--amber);
+        letter-spacing: 0.1em;
+        margin: 1.2rem 0 0.6rem;
+        text-transform: uppercase;
+      }
+      .panel-sub {
+        font-size: 0.7rem;
+        color: var(--sub);
+        line-height: 1.75;
+        margin-bottom: 1.2rem;
+      }
+      .panel p {
+        font-size: 0.68rem;
+        color: var(--sub);
+        line-height: 1.75;
+        margin-bottom: 0.8rem;
+      }
+      .panel code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.92em;
+      }
+      .panel strong { color: var(--text); font-weight: 500; }
+
+      /* ── quant primer ── */
+      .quant-row {
+        display: grid;
+        grid-template-columns: 120px 1fr 90px 90px;
+        gap: 0.8rem;
+        align-items: center;
+        padding: 0.6rem 0;
+        border-bottom: 1px dashed var(--line-soft);
+      }
+      .quant-row:last-child { border-bottom: none; }
+      @media (max-width: 720px) {
+        .quant-row { grid-template-columns: 80px 1fr 60px; gap: 0.4rem; }
+        .quant-row .bytes-col { display: none; }
+      }
+      .quant-name {
+        font-size: 0.74rem;
+        color: var(--text);
+        letter-spacing: 0.04em;
+      }
+      .quant-name .sub {
+        display: block;
+        font-size: 0.52rem;
+        color: var(--mute);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-top: 0.15rem;
+      }
+      .bit-viz {
+        display: flex;
+        gap: 1px;
+        height: 18px;
+      }
+      .bit-cell {
+        background: var(--blue);
+        border-radius: 1px;
+        flex: 1;
+        min-width: 4px;
+        max-width: 11px;
+      }
+      .bit-cell.sign    { background: var(--red); }
+      .bit-cell.exp     { background: var(--amber); }
+      .bit-cell.mantissa{ background: var(--green); }
+      .bit-cell.unused  { background: var(--line); opacity: 0.4; }
+      .bit-cell.nf      { background: var(--magenta); }
+
+      .quant-bytes {
+        font-size: 0.72rem;
+        color: var(--amber);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      .quant-bytes .lbl {
+        display: block;
+        font-size: 0.5rem;
+        color: var(--mute);
+        letter-spacing: 0.14em;
+        margin-top: 0.15rem;
+      }
+      .quant-gb {
+        font-size: 0.72rem;
+        color: var(--green);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      .quant-gb .lbl {
+        display: block;
+        font-size: 0.5rem;
+        color: var(--mute);
+        letter-spacing: 0.14em;
+        margin-top: 0.15rem;
+      }
+
+      .legend {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed var(--line);
+        font-size: 0.58rem;
+        color: var(--sub);
+      }
+      .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+      .swatch {
+        width: 10px; height: 10px;
+        border-radius: 2px;
+      }
+
+      /* ── LoRA decomposition ── */
+      .lora-split {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr 1fr;
+        gap: 1.2rem;
+        align-items: center;
+        margin-top: 1rem;
+      }
+      @media (max-width: 900px) {
+        .lora-split { grid-template-columns: 1fr; }
+      }
+      .matrix-box {
+        text-align: center;
+      }
+      .matrix-name {
+        font-size: 0.62rem;
+        color: var(--sub);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+      }
+      .matrix-shape {
+        font-size: 0.55rem;
+        color: var(--mute);
+        letter-spacing: 0.06em;
+        margin-top: 0.5rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .matrix-count {
+        font-size: 0.82rem;
+        color: var(--amber);
+        margin-top: 0.2rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .mat-svg { display: block; margin: 0 auto; }
+      .mat-fill-base { fill: rgba(63, 185, 80, 0.18); stroke: var(--green); }
+      .mat-fill-b    { fill: rgba(188, 140, 255, 0.25); stroke: var(--magenta); }
+      .mat-fill-a    { fill: rgba(88, 166, 255, 0.25); stroke: var(--blue); }
+      .mat-dim {
+        fill: var(--mute);
+        font-family: "Fira Code", monospace;
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-anchor: middle;
+      }
+      .eq-sign {
+        font-size: 1.6rem;
+        color: var(--mute);
+        text-align: center;
+      }
+      .plus-sign {
+        position: relative;
+        font-size: 1.2rem;
+        color: var(--mute);
+        text-align: center;
+      }
+
+      .lora-formula {
+        background: #06080c;
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--amber);
+        border-radius: 5px;
+        padding: 0.9rem 1.2rem;
+        margin-top: 1rem;
+        font-size: 0.72rem;
+        line-height: 1.9;
+        color: var(--sub);
+        text-align: center;
+      }
+      .lora-formula .var { color: var(--green); }
+      .lora-formula .op  { color: var(--amber); }
+      .lora-formula .num { color: var(--magenta); }
+      .lora-formula b { color: var(--text); }
+
+      /* ── target module table ── */
+      .tm-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.5rem;
+        font-size: 0.62rem;
+      }
+      .tm-table th, .tm-table td {
+        text-align: left;
+        padding: 0.5rem 0.7rem;
+        border-bottom: 1px solid var(--line-soft);
+        font-variant-numeric: tabular-nums;
+      }
+      .tm-table th {
+        font-size: 0.52rem;
+        letter-spacing: 0.16em;
+        color: var(--mute);
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--line);
+      }
+      .tm-table td { color: var(--sub); }
+      .tm-table td.mod { color: var(--green); }
+      .tm-table td.shape { color: var(--text); }
+      .tm-table td.base-p { color: var(--mute); }
+      .tm-table td.lora-p { color: var(--amber); }
+      .tm-table td.pct { color: var(--magenta); text-align: right; }
+      .tm-table tr.total td { border-top: 1px solid var(--line); font-weight: 500; color: var(--text); }
+
+      /* ── architecture stack ── */
+      .arch-stack {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 0.8rem;
+        margin-top: 0.6rem;
+      }
+      @media (max-width: 1000px) {
+        .arch-stack { grid-template-columns: 1fr; }
+      }
+      .arch-col {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 1rem 1.1rem;
+      }
+      .arch-head {
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid var(--line-soft);
+        margin-bottom: 0.8rem;
+      }
+      .arch-name {
+        font-size: 0.84rem;
+        color: var(--blue);
+        letter-spacing: 0.03em;
+      }
+      .arch-col.v25 .arch-name { color: var(--green); }
+      .arch-col.v3  .arch-name { color: var(--magenta); }
+      .arch-col.omni .arch-name { color: var(--red); }
+      .arch-total {
+        font-size: 0.58rem;
+        color: var(--mute);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-top: 0.2rem;
+      }
+      .arch-total b {
+        color: var(--amber);
+        letter-spacing: 0;
+        text-transform: none;
+        font-size: 1.25em;
+      }
+
+      /* a block in the stack */
+      .block {
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--blue);
+        border-radius: 4px;
+        padding: 0.55rem 0.7rem;
+        margin-bottom: 0.35rem;
+        position: relative;
+      }
+      .block.vision    { border-left-color: var(--magenta); }
+      .block.audio     { border-left-color: var(--red); }
+      .block.projector { border-left-color: var(--amber); border-style: dashed; }
+      .block.llm       { border-left-color: var(--green); }
+      .block.talker    { border-left-color: var(--teal); }
+      .block.vocoder   { border-left-color: var(--orange); }
+      .block.head      { border-left-color: var(--blue); }
+      .block-t {
+        font-size: 0.66rem;
+        color: var(--text);
+        letter-spacing: 0.03em;
+      }
+      .block-sub {
+        font-size: 0.56rem;
+        color: var(--mute);
+        letter-spacing: 0.08em;
+        margin-top: 0.18rem;
+        line-height: 1.6;
+      }
+      .block-sub code {
+        color: var(--amber);
+        background: rgba(0,0,0,.3);
+        padding: 0 3px;
+        border-radius: 2px;
+        font-size: 0.95em;
+      }
+      .block-stat {
+        display: inline-block;
+        font-size: 0.58rem;
+        color: var(--amber);
+        margin-left: 0.3rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .badges {
+        display: flex;
+        gap: 0.3rem;
+        margin-top: 0.3rem;
+        flex-wrap: wrap;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.5rem;
+        letter-spacing: 0.12em;
+        padding: 1px 6px;
+        border-radius: 3px;
+        border: 1px solid;
+      }
+      .badge.bf16  { color: var(--blue);    border-color: rgba(88,166,255,.5);  background: rgba(88,166,255,.08); }
+      .badge.fp16  { color: var(--teal);    border-color: rgba(57,197,207,.5);  background: rgba(57,197,207,.08); }
+      .badge.fp32  { color: var(--mute);    border-color: rgba(72,79,88,.8);    background: rgba(72,79,88,.1); }
+      .badge.nf4   { color: var(--magenta); border-color: rgba(188,140,255,.5); background: rgba(188,140,255,.08); }
+      .badge.int8  { color: var(--amber);   border-color: rgba(210,153,34,.5);  background: rgba(210,153,34,.08); }
+      .badge.frz   { color: var(--red);     border-color: rgba(248,81,73,.5);   background: rgba(248,81,73,.08); }
+      .badge.trn   { color: var(--green);   border-color: rgba(63,185,80,.5);   background: rgba(63,185,80,.08); }
+      .badge.moe   { color: var(--orange);  border-color: rgba(255,140,66,.5);  background: rgba(255,140,66,.08); }
+      .badge.lora  { color: var(--amber);   border-color: rgba(210,153,34,.6);  background: rgba(210,153,34,.1); }
+
+      .lora-inject {
+        display: flex;
+        gap: 3px;
+        margin-top: 0.35rem;
+        align-items: center;
+      }
+      .lora-inject .lora-tag {
+        font-size: 0.48rem;
+        color: var(--amber);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .lora-pill {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        background: var(--amber);
+        border-radius: 50%;
+        box-shadow: 0 0 4px var(--amber);
+      }
+
+      /* ── size ratio bar (component size visualization) ── */
+      .size-bar {
+        position: relative;
+        height: 10px;
+        background: var(--line-soft);
+        border-radius: 2px;
+        margin-top: 0.35rem;
+        overflow: hidden;
+      }
+      .size-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--green), var(--blue));
+        border-radius: 2px;
+        animation: fillbar 1.6s cubic-bezier(.2,.7,.3,1) forwards;
+      }
+      .size-bar-fill.v { background: linear-gradient(90deg, var(--magenta), var(--blue)); }
+      .size-bar-fill.a { background: linear-gradient(90deg, var(--red), var(--amber)); }
+      .size-bar-fill.t { background: linear-gradient(90deg, var(--teal), var(--green)); }
+      @keyframes fillbar {
+        from { width: 0; }
+      }
+
+      /* ── VRAM stacked bar ── */
+      .vram-bar {
+        display: flex;
+        height: 32px;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        margin-top: 0.4rem;
+      }
+      .vram-seg {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.54rem;
+        letter-spacing: 0.08em;
+        color: var(--bg);
+        font-weight: 500;
+        transition: flex-grow .3s;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .vram-seg.w { background: var(--blue); }
+      .vram-seg.a { background: var(--magenta); }
+      .vram-seg.g { background: var(--green); }
+      .vram-seg.o { background: var(--amber); }
+      .vram-seg.l { background: var(--red); }
+      .vram-seg.free { background: var(--line-soft); color: var(--sub); }
+
+      .vram-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.58rem;
+        color: var(--sub);
+        margin-top: 0.3rem;
+        letter-spacing: 0.06em;
+      }
+      .vram-label .k { color: var(--text); }
+      .vram-label .tot { color: var(--amber); font-variant-numeric: tabular-nums; }
+      .vram-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        margin-top: 0.8rem;
+        font-size: 0.54rem;
+        color: var(--sub);
+        letter-spacing: 0.06em;
+      }
+      .vram-legend .swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+      .vram-row {
+        padding: 0.8rem 0;
+        border-bottom: 1px dashed var(--line-soft);
+      }
+      .vram-row:last-child { border-bottom: none; }
+      .vram-regime {
+        font-size: 0.62rem;
+        color: var(--amber);
+        letter-spacing: 0.08em;
+      }
+      .vram-regime .meta {
+        font-size: 0.54rem;
+        color: var(--mute);
+        margin-left: 0.4rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      /* ── MoE fan ── */
+      .moe-viz {
+        margin-top: 1rem;
+        background: #06080c;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 1rem;
+      }
+
+      /* ── matrix table ── */
+      .m-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.6rem;
+        margin-top: 0.5rem;
+      }
+      .m-table th, .m-table td {
+        padding: 0.5rem 0.7rem;
+        border-bottom: 1px solid var(--line-soft);
+        text-align: left;
+        vertical-align: top;
+      }
+      .m-table th {
+        font-size: 0.5rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--line);
+      }
+      .m-table td { color: var(--sub); }
+      .m-table td.v { color: var(--text); font-variant-numeric: tabular-nums; }
+      .m-table td code { color: var(--amber); background: rgba(0,0,0,.3); padding: 0 4px; border-radius: 2px; }
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity .55s ease, transform .55s cubic-bezier(.2,.7,.2,1);
+      }
+      .reveal.in { opacity: 1; transform: translateY(0); }
+
+      footer {
+        text-align: center;
+        font-size: 0.56rem;
+        color: var(--mute);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        padding: 2rem 1rem 3rem;
+        position: relative;
+        z-index: 10;
+      }
+      footer a { color: var(--sub); text-decoration: none; }
+      footer a:hover { color: var(--blue); }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="tag">// architecture viz · params · dtypes · quant · LoRA</div>
+      <h1>Architecture <span class="muted">—</span> <span class="accent">VIsualized</span></h1>
+      <div class="sub">
+        Qwen2.5-VL-7B · Qwen3.5-4B / 9B · Qwen3-Omni 30B-A3B
+        <span style="color: var(--mute);"> · param blocks · bit widths · rank-32 LoRA decomposition</span>
+      </div>
+      <div class="crumb">
+        <a href="../index.html">home</a>
+        <span class="arrow">›</span>
+        <a href="08-finetuning_guide.html">master guide</a>
+        <span class="arrow">›</span>
+        <a href="project_report.html">report</a>
+        <span class="arrow">›</span>
+        <a href="04-train_flow.html">train flow</a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ──────────────────────── QUANT PRIMER ──────────────────────── -->
+      <div class="section-label"><span class="n">01</span> quantization · what each float actually looks like</div>
+      <section class="panel reveal">
+        <h2>Bit widths, byte costs, and why nf4 is the 4× trick</h2>
+        <p class="panel-sub">
+          Every parameter stored on GPU costs <code>bits/8</code> bytes. Moving
+          from <code>fp32</code> (4 B) to <code>nf4</code> (0.5 B) is an
+          <b>8× storage win</b> — that's what makes a 7 B vision-LM fit on a
+          24 GB card. Each bit shown below is one cell; red = sign, amber =
+          exponent, green = mantissa, magenta = NF4 codebook index.
+        </p>
+
+        <!-- fp32 -->
+        <div class="quant-row">
+          <div class="quant-name">fp32<span class="sub">IEEE 754 · single</span></div>
+          <div class="bit-viz" title="1 sign · 8 exp · 23 mantissa">
+            <div class="bit-cell sign"></div>
+            <div class="bit-cell exp"></div><div class="bit-cell exp"></div><div class="bit-cell exp"></div>
+            <div class="bit-cell exp"></div><div class="bit-cell exp"></div><div class="bit-cell exp"></div>
+            <div class="bit-cell exp"></div><div class="bit-cell exp"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+          </div>
+          <div class="quant-bytes bytes-col">4 B<span class="lbl">per param</span></div>
+          <div class="quant-gb">33.2 GB<span class="lbl">for 8.29 B</span></div>
+        </div>
+
+        <!-- fp16 -->
+        <div class="quant-row">
+          <div class="quant-name">fp16<span class="sub">half · legacy</span></div>
+          <div class="bit-viz" title="1 sign · 5 exp · 10 mantissa">
+            <div class="bit-cell sign"></div>
+            <div class="bit-cell exp"></div><div class="bit-cell exp"></div><div class="bit-cell exp"></div>
+            <div class="bit-cell exp"></div><div class="bit-cell exp"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div>
+          </div>
+          <div class="quant-bytes bytes-col">2 B<span class="lbl">per param</span></div>
+          <div class="quant-gb">16.6 GB<span class="lbl">for 8.29 B</span></div>
+        </div>
+
+        <!-- bf16 -->
+        <div class="quant-row">
+          <div class="quant-name">bf16<span class="sub">brain · native on A10G / 4090</span></div>
+          <div class="bit-viz" title="1 sign · 8 exp · 7 mantissa — same range as fp32">
+            <div class="bit-cell sign"></div>
+            <div class="bit-cell exp"></div><div class="bit-cell exp"></div><div class="bit-cell exp"></div>
+            <div class="bit-cell exp"></div><div class="bit-cell exp"></div><div class="bit-cell exp"></div>
+            <div class="bit-cell exp"></div><div class="bit-cell exp"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div>
+          </div>
+          <div class="quant-bytes bytes-col">2 B<span class="lbl">per param</span></div>
+          <div class="quant-gb">16.6 GB<span class="lbl">for 8.29 B</span></div>
+        </div>
+
+        <!-- int8 -->
+        <div class="quant-row">
+          <div class="quant-name">int8<span class="sub">LLM.int8() · llm.int8</span></div>
+          <div class="bit-viz" title="1 sign · 7 mantissa · linear quant">
+            <div class="bit-cell sign"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div><div class="bit-cell mantissa"></div>
+            <div class="bit-cell mantissa"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div>
+          </div>
+          <div class="quant-bytes bytes-col">1 B<span class="lbl">per param</span></div>
+          <div class="quant-gb">8.3 GB<span class="lbl">for 8.29 B</span></div>
+        </div>
+
+        <!-- nf4 -->
+        <div class="quant-row">
+          <div class="quant-name">nf4<span class="sub">bnb · <b>our project</b></span></div>
+          <div class="bit-viz" title="4-bit codebook lookup · 16 learned levels">
+            <div class="bit-cell nf"></div><div class="bit-cell nf"></div>
+            <div class="bit-cell nf"></div><div class="bit-cell nf"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div><div class="bit-cell unused"></div><div class="bit-cell unused"></div>
+            <div class="bit-cell unused"></div>
+          </div>
+          <div class="quant-bytes bytes-col">0.5 B<span class="lbl">per param</span></div>
+          <div class="quant-gb">4.15 GB<span class="lbl">for 8.29 B</span></div>
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><span class="swatch" style="background: var(--red);"></span>sign bit</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--amber);"></span>exponent</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--green);"></span>mantissa / value</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--magenta);"></span>nf4 codebook idx</div>
+          <div class="legend-item"><span class="swatch" style="background: var(--line);"></span>unused bits (vs fp32 frame)</div>
+        </div>
+
+        <h3>dtype cheat-sheet · what our runs use</h3>
+        <table class="m-table">
+          <thead>
+            <tr><th>regime</th><th>storage</th><th>compute</th><th>optimizer</th><th>effective per param</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>vanilla fp32 train</td>
+              <td class="v">fp32 (4 B)</td>
+              <td class="v">fp32 (4 B)</td>
+              <td class="v">fp32 × 2 (mom+var) = 8 B</td>
+              <td class="v"><b>16 B / param</b></td>
+            </tr>
+            <tr>
+              <td>bf16 mixed</td>
+              <td class="v">bf16 (2 B)</td>
+              <td class="v">bf16 (2 B)</td>
+              <td class="v">fp32 × 2 = 8 B</td>
+              <td class="v"><b>10 B / param</b></td>
+            </tr>
+            <tr>
+              <td>QLoRA 4-bit <span class="badge lora" style="margin-left: 4px;">OUR RUN</span></td>
+              <td class="v">nf4 (0.5 B · frozen base)</td>
+              <td class="v">bf16 (2 B)</td>
+              <td class="v">adam 8-bit on LoRA only</td>
+              <td class="v"><b>~0.7 B / param</b> (base) · LoRA bf16 separately</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ──────────────────────── LORA RANK-32 DECOMPOSITION ──────────────────────── -->
+      <div class="section-label"><span class="n">02</span> LoRA rank-32 · the matrix stuffs</div>
+      <section class="panel reveal">
+        <h2>Why ~0.6% of parameters carries the finetune</h2>
+        <p class="panel-sub">
+          LoRA replaces a full weight update <code>ΔW</code> with a
+          <b>low-rank factorization</b>
+          <code>ΔW = B·A</code>, where <code>B ∈ ℝ<sup>d×r</sup></code> and
+          <code>A ∈ ℝ<sup>r×k</sup></code>. With <code>r=32</code> on a
+          <code>3584×3584</code> projection, you replace <b>12.8 M</b> trainable
+          params with <b>229 K</b> — a <b>56× reduction per layer</b>. The base
+          <code>W</code> stays frozen (and 4-bit quantised).
+        </p>
+
+        <div class="lora-split">
+          <!-- Base W -->
+          <div class="matrix-box">
+            <div class="matrix-name">W · base · frozen</div>
+            <svg class="mat-svg" width="140" height="140" viewBox="0 0 140 140">
+              <rect x="15" y="15" width="110" height="110" class="mat-fill-base" stroke-width="1.5" rx="3"/>
+              <!-- grid -->
+              <g stroke="rgba(63,185,80,.25)" stroke-width="0.5">
+                <line x1="15" y1="37.5" x2="125" y2="37.5"/>
+                <line x1="15" y1="60"   x2="125" y2="60"/>
+                <line x1="15" y1="82.5" x2="125" y2="82.5"/>
+                <line x1="15" y1="105"  x2="125" y2="105"/>
+                <line x1="37.5"  y1="15" x2="37.5"  y2="125"/>
+                <line x1="60"    y1="15" x2="60"    y2="125"/>
+                <line x1="82.5"  y1="15" x2="82.5"  y2="125"/>
+                <line x1="105"   y1="15" x2="105"   y2="125"/>
+              </g>
+              <text class="mat-dim" x="70" y="9">d = 3584</text>
+              <text class="mat-dim" x="70" y="135">d = 3584</text>
+            </svg>
+            <div class="matrix-shape">3584 × 3584</div>
+            <div class="matrix-count">12.85 M params · nf4 frozen</div>
+          </div>
+
+          <div class="eq-sign">≈</div>
+
+          <!-- B -->
+          <div class="matrix-box">
+            <div class="matrix-name">B · up · trainable</div>
+            <svg class="mat-svg" width="60" height="140" viewBox="0 0 60 140">
+              <rect x="22" y="15" width="16" height="110" class="mat-fill-b" stroke-width="1.5" rx="2"/>
+              <g stroke="rgba(188,140,255,.35)" stroke-width="0.5">
+                <line x1="22" y1="37.5" x2="38" y2="37.5"/>
+                <line x1="22" y1="60"   x2="38" y2="60"/>
+                <line x1="22" y1="82.5" x2="38" y2="82.5"/>
+                <line x1="22" y1="105"  x2="38" y2="105"/>
+              </g>
+              <text class="mat-dim" x="30" y="9">r=32</text>
+              <text class="mat-dim" x="30" y="135">d=3584</text>
+            </svg>
+            <div class="matrix-shape">3584 × 32</div>
+            <div class="matrix-count">114.7 K · bf16</div>
+          </div>
+
+          <!-- A -->
+          <div class="matrix-box">
+            <div class="plus-sign" style="font-size: 1.1rem; color: var(--mute); margin-bottom: 0.5rem;">·</div>
+            <div class="matrix-name">A · down · trainable</div>
+            <svg class="mat-svg" width="140" height="60" viewBox="0 0 140 60">
+              <rect x="15" y="22" width="110" height="16" class="mat-fill-a" stroke-width="1.5" rx="2"/>
+              <g stroke="rgba(88,166,255,.35)" stroke-width="0.5">
+                <line x1="37.5" y1="22" x2="37.5" y2="38"/>
+                <line x1="60"   y1="22" x2="60"   y2="38"/>
+                <line x1="82.5" y1="22" x2="82.5" y2="38"/>
+                <line x1="105"  y1="22" x2="105"  y2="38"/>
+              </g>
+              <text class="mat-dim" x="70" y="16">d=3584</text>
+              <text class="mat-dim" x="70" y="50">r=32</text>
+            </svg>
+            <div class="matrix-shape">32 × 3584</div>
+            <div class="matrix-count">114.7 K · bf16</div>
+          </div>
+        </div>
+
+        <div class="lora-formula">
+          <b>W + ΔW</b> <span class="op">≈</span> <b>W</b> <span class="op">+</span>
+          <span class="op">(α/r)</span> <span class="var">B</span><span class="var">A</span>
+          <span style="color: var(--mute);">  ·  </span>
+          r=<span class="num">32</span>, α=<span class="num">64</span>,
+          scale = α/r = <span class="num">2.0</span>
+          <br>
+          <span style="font-size: 0.6rem; color: var(--mute);">
+            full ΔW · d² = 12.85 M  →  low-rank B·A · 2·d·r = 229 K
+            <span style="color: var(--amber);">(56× smaller per projection)</span>
+          </span>
+        </div>
+
+        <h3>Target modules · Qwen2.5-VL-7B-Instruct · rank-32</h3>
+        <p style="font-size: 0.64rem;">
+          LoRA is attached to <b>7 linear projections per LLM transformer block</b>
+          × 28 blocks. Each module's
+          base weight is kept 4-bit frozen; the trainable B·A pair rides bf16.
+          Hidden <code>d=3584</code>, kv-dim <code>512</code>, FFN <code>f=18944</code>.
+        </p>
+
+        <table class="tm-table">
+          <thead>
+            <tr>
+              <th>module</th>
+              <th>shape</th>
+              <th>base params</th>
+              <th>LoRA B shape</th>
+              <th>LoRA A shape</th>
+              <th>LoRA params</th>
+              <th>ratio</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mod"><code>q_proj</code></td><td class="shape">3584 × 3584</td><td class="base-p">12.85 M</td><td>3584 × 32</td><td>32 × 3584</td><td class="lora-p">229 K</td><td class="pct">1.78 %</td></tr>
+            <tr><td class="mod"><code>k_proj</code></td><td class="shape">3584 × 512</td><td class="base-p">1.83 M</td><td>512 × 32</td><td>32 × 3584</td><td class="lora-p">131 K</td><td class="pct">7.14 %</td></tr>
+            <tr><td class="mod"><code>v_proj</code></td><td class="shape">3584 × 512</td><td class="base-p">1.83 M</td><td>512 × 32</td><td>32 × 3584</td><td class="lora-p">131 K</td><td class="pct">7.14 %</td></tr>
+            <tr><td class="mod"><code>o_proj</code></td><td class="shape">3584 × 3584</td><td class="base-p">12.85 M</td><td>3584 × 32</td><td>32 × 3584</td><td class="lora-p">229 K</td><td class="pct">1.78 %</td></tr>
+            <tr><td class="mod"><code>gate_proj</code></td><td class="shape">3584 × 18944</td><td class="base-p">67.90 M</td><td>18944 × 32</td><td>32 × 3584</td><td class="lora-p">721 K</td><td class="pct">1.06 %</td></tr>
+            <tr><td class="mod"><code>up_proj</code></td><td class="shape">3584 × 18944</td><td class="base-p">67.90 M</td><td>18944 × 32</td><td>32 × 3584</td><td class="lora-p">721 K</td><td class="pct">1.06 %</td></tr>
+            <tr><td class="mod"><code>down_proj</code></td><td class="shape">18944 × 3584</td><td class="base-p">67.90 M</td><td>3584 × 32</td><td>32 × 18944</td><td class="lora-p">721 K</td><td class="pct">1.06 %</td></tr>
+            <tr class="total"><td>per layer × 28</td><td>—</td><td>233.07 M × 28 = 6.53 B</td><td>—</td><td>—</td><td class="lora-p">2.88 M × 28 = <b>80.7 M</b></td><td class="pct">1.23 %</td></tr>
+          </tbody>
+        </table>
+
+        <p style="margin-top: 1rem;">
+          <b>Scaling up rank:</b> LoRA params scale linearly in <code>r</code>.
+          <code>r=8</code> → 20.2 M · <code>r=16</code> → 40.3 M ·
+          <code>r=32</code> → 80.7 M · <code>r=64</code> → 161 M ·
+          <code>r=128</code> → 322 M. Rank 32 is the max that fits on 24 GB
+          A10G with batch=1 + grad-ckpt on 7B-VL; rank 64 OOMs.
+        </p>
+      </section>
+
+      <!-- ──────────────────────── ARCHITECTURE STACKS ──────────────────────── -->
+      <div class="section-label"><span class="n">03</span> the three models · component by component</div>
+      <section class="panel reveal" style="padding: 0.8rem 1.2rem;">
+        <p class="panel-sub" style="margin-bottom: 0.5rem;">
+          Each column is a full model drawn as a vertical stack. Block
+          left-border colour = component type; size bar below each block is
+          proportional to that component's share of total parameters. Badges:
+          <span class="badge bf16">BF16</span> native dtype ·
+          <span class="badge nf4">NF4</span> 4-bit base ·
+          <span class="badge frz">FROZEN</span> no grads ·
+          <span class="badge lora">LoRA r=32</span> adapter points ·
+          <span class="badge moe">MoE</span> sparse experts.
+        </p>
+      </section>
+
+      <div class="arch-stack">
+        <!-- ─────────── Qwen2.5-VL-7B ─────────── -->
+        <div class="arch-col v25 reveal">
+          <div class="arch-head">
+            <div class="arch-name">Qwen2.5-VL-7B-Instruct</div>
+            <div class="arch-total">total · <b>8.29 B</b> · <b>~16.6 GB bf16</b> · <b>~4.15 GB nf4</b></div>
+          </div>
+
+          <div class="block vision">
+            <div class="block-t">Patch Embed + ViT</div>
+            <div class="block-sub">
+              <code>patch=14</code> · <code>spatial_merge=2</code> · 4:1 token compression
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill v" style="width: 8%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <b>32 layers</b> · hidden <b>1280</b> · 16 heads · FFN 3420 ·
+              <span style="color: var(--amber);">~675 M</span>
+            </div>
+          </div>
+
+          <div class="block projector">
+            <div class="block-t">MLP Projector · vision → LLM</div>
+            <div class="block-sub">
+              2-layer MLP · <code>1280 → 3584</code> · <b>the bottleneck</b>
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 0.5%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~10 M</span>
+            </div>
+          </div>
+
+          <div class="block head">
+            <div class="block-t">Token Embeddings</div>
+            <div class="block-sub">
+              vocab <code>152 064</code> × hidden <code>3584</code>
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 6.5%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~545 M</span>
+            </div>
+          </div>
+
+          <div class="block llm">
+            <div class="block-t">LLM Transformer · Qwen2.5</div>
+            <div class="block-sub">
+              <b>28 layers</b> · hidden <b>3584</b> · 28 Q / 4 KV heads (GQA) · FFN <b>18944</b>
+              <br>RoPE θ=1e6 · ctx 128 K · SwiGLU · RMSNorm
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge nf4">NF4 · our run</span>
+              <span class="badge frz">FROZEN base</span>
+              <span class="badge lora">LoRA r=32 · 7 modules</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 78%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~6.53 B</span>
+            </div>
+            <div class="lora-inject">
+              <span class="lora-tag">LoRA @</span>
+              <span class="lora-pill" title="q_proj"></span>
+              <span class="lora-pill" title="k_proj"></span>
+              <span class="lora-pill" title="v_proj"></span>
+              <span class="lora-pill" title="o_proj"></span>
+              <span class="lora-pill" title="gate_proj"></span>
+              <span class="lora-pill" title="up_proj"></span>
+              <span class="lora-pill" title="down_proj"></span>
+              <span class="lora-tag" style="margin-left: 0.3rem;">· 7 × 28 = 196 pairs · 80.7 M trainable</span>
+            </div>
+          </div>
+
+          <div class="block head">
+            <div class="block-t">LM Head · untied</div>
+            <div class="block-sub">
+              hidden <code>3584</code> × vocab <code>152 064</code>
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 6.5%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~545 M</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─────────── Qwen3.5-9B ─────────── -->
+        <div class="arch-col v3 reveal">
+          <div class="arch-head">
+            <div class="arch-name">Qwen3.5-9B (natively VL)</div>
+            <div class="arch-total">total · <b>~10 B</b> · <b>~20 GB bf16</b> · <b>~5 GB nf4 <span style="color: var(--red);">⚠ unstable</span></b></div>
+          </div>
+
+          <div class="block vision">
+            <div class="block-t">Patch Embed + ViT</div>
+            <div class="block-sub">
+              <code>patch=16</code> · <code>spatial_merge=2</code> · <code>deepstack: []</code>
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill v" style="width: 5.5%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <b>27 layers</b> · hidden <b>1152</b> · 16 heads · FFN 4304 · out 4096 ·
+              <span style="color: var(--amber);">~550 M</span>
+            </div>
+          </div>
+
+          <div class="block projector">
+            <div class="block-t">Merger · vision→LLM</div>
+            <div class="block-sub">
+              integrated into block-0 · no separate projector bottleneck
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 0.4%;"></div></div>
+          </div>
+
+          <div class="block head">
+            <div class="block-t">Token Embeddings</div>
+            <div class="block-sub">
+              vocab <code>248 320</code> × hidden <code>4096</code> ·
+              <code>tie_word_embeddings=false</code>
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 10%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~1.02 B</span>
+            </div>
+          </div>
+
+          <div class="block llm">
+            <div class="block-t">LLM · Gated-DeltaNet + GatedAttn Hybrid</div>
+            <div class="block-sub">
+              <b>32 layers</b> pattern <code>3×(DeltaNet+FFN) → 1×(GatedAttn+FFN)</code>
+              <br>hidden <b>4096</b> · 16 Q / 4 KV · head_dim <b>256</b> · FFN <b>12288</b>
+              <br>ctx <b>262 K native · ~1 M with YaRN</b> · RoPE θ=1e7 · partial-rotary 0.25
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge lora">LoRA bf16 only</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 72%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~7.3 B</span>
+            </div>
+            <div class="lora-inject">
+              <span class="lora-tag">LoRA @</span>
+              <span class="lora-pill"></span>
+              <span class="lora-pill"></span>
+              <span class="lora-pill"></span>
+              <span class="lora-pill"></span>
+              <span class="lora-pill"></span>
+              <span class="lora-pill"></span>
+              <span class="lora-pill"></span>
+              <span class="lora-tag" style="margin-left: 0.3rem;">· 7 × 32 = 224 pairs</span>
+            </div>
+          </div>
+
+          <div class="block head">
+            <div class="block-t">LM Head · untied</div>
+            <div class="block-sub">
+              hidden <code>4096</code> × vocab <code>248 320</code>
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 10%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~1.02 B</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─────────── Qwen3-Omni ─────────── -->
+        <div class="arch-col omni reveal">
+          <div class="arch-head">
+            <div class="arch-name">Qwen3-Omni-30B-A3B-Instruct</div>
+            <div class="arch-total">total · <b>~30 B</b> MoE · <b>~3 B active</b> / token · bf16 ~60 GB</div>
+          </div>
+
+          <div class="block vision">
+            <div class="block-t">Thinker ViT + DeepStack</div>
+            <div class="block-sub">
+              27 layers · hidden <b>1152</b> · FFN 4304 · out <b>2048</b><br>
+              <code>deepstack: [8, 16, 24]</code> — multi-level fusion
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill v" style="width: 3%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~550 M</span>
+            </div>
+          </div>
+
+          <div class="block audio">
+            <div class="block-t">Audio Encoder · Whisper-style</div>
+            <div class="block-sub">
+              <b>32 layers</b> · <code>d_model=1280</code> · 20 heads · FFN 5120 ·
+              mel bins <b>128</b> · output → hidden 2048
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill a" style="width: 2.5%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~600 M</span>
+            </div>
+          </div>
+
+          <div class="block llm">
+            <div class="block-t">Thinker · MoE Transformer</div>
+            <div class="block-sub">
+              <b>48 layers</b> · hidden <b>2048</b> · 32 Q / 4 KV · FFN <code>moe</code>
+              <br>
+              <b>128 experts · top-8 routed per token</b>
+              <br>ctx 65 K · shared_expert=0
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge moe">MoE 128/8</span>
+              <span class="badge lora">LoRA: attn only</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 78%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~22 B total · 2.2 B active</span>
+            </div>
+          </div>
+
+          <div class="block talker">
+            <div class="block-t">Talker · MoE AR decoder</div>
+            <div class="block-sub">
+              <b>20 layers</b> · hidden <b>1024</b> · 16 Q / 2 KV · FFN <code>moe 384</code>
+              <br>
+              <b>128 experts · top-6</b> · vocab 3072 · reads thinker <b>hidden states</b>
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge moe">MoE 128/6</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill t" style="width: 14%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~7 B total · 700 M active</span>
+            </div>
+          </div>
+
+          <div class="block vocoder">
+            <div class="block-t">code2wav · Audio Decoder</div>
+            <div class="block-sub">
+              8 layers · hidden 1024 · codebook <b>2048</b> ·
+              quantizers <b>16</b> · upsample [8, 5, 4, 3]
+            </div>
+            <div class="badges">
+              <span class="badge bf16">BF16</span>
+              <span class="badge frz">FROZEN</span>
+            </div>
+            <div class="size-bar"><div class="size-bar-fill" style="width: 2.5%;"></div></div>
+            <div class="block-sub" style="margin-top: 0.25rem;">
+              <span style="color: var(--amber);">~300 M</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ──────────────────────── QWEN3.5-4B INSET ──────────────────────── -->
+      <div class="section-label"><span class="n">04</span> qwen3.5-4b · the consumer-gpu tier</div>
+      <section class="panel reveal">
+        <h2>Same hybrid architecture, downscaled</h2>
+        <p class="panel-sub">
+          Qwen3.5-4B is the small-tier sibling of 9B. Same Gated-DeltaNet
+          hybrid, smaller hidden size, fewer FFN params, vocab/embedding are
+          identical (<b>both tiers share the 248 k BPE tokenizer</b>, so
+          embedding tables scale only with hidden size). The 4B version
+          introduces <code>tie_word_embeddings=true</code> — the LM head
+          reuses the embedding matrix, saving ~650 M params.
+        </p>
+
+        <table class="m-table">
+          <thead>
+            <tr>
+              <th>field</th>
+              <th>Qwen3.5-4B</th>
+              <th>Qwen3.5-9B</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>hidden_size</td><td class="v">2560</td><td class="v">4096</td><td>+60 %</td></tr>
+            <tr><td>num_hidden_layers</td><td class="v">32</td><td class="v">32</td><td>—</td></tr>
+            <tr><td>intermediate_size (FFN)</td><td class="v">9216</td><td class="v">12288</td><td>+33 %</td></tr>
+            <tr><td>num_attention_heads Q / KV</td><td class="v">16 / 4</td><td class="v">16 / 4</td><td>same GQA</td></tr>
+            <tr><td>head_dim</td><td class="v">256</td><td class="v">256</td><td>—</td></tr>
+            <tr><td>vocab_size</td><td class="v">248 320</td><td class="v">248 320</td><td>—</td></tr>
+            <tr><td>max_position_embeddings</td><td class="v">262 144</td><td class="v">262 144</td><td>—</td></tr>
+            <tr><td><code>tie_word_embeddings</code></td><td class="v" style="color: var(--green);">true</td><td class="v" style="color: var(--red);">false</td><td>4B saves ~650 M params</td></tr>
+            <tr><td>ViT layers · hidden</td><td class="v">24 · 1024</td><td class="v">27 · 1152</td><td>bigger on 9B</td></tr>
+            <tr><td>patch_size</td><td class="v">16</td><td class="v">16</td><td>— (2.5-VL was 14)</td></tr>
+            <tr><td>approx total</td><td class="v" style="color: var(--amber);">~4.3 B</td><td class="v" style="color: var(--amber);">~10 B</td><td>—</td></tr>
+            <tr><td>bf16 weights</td><td class="v" style="color: var(--blue);">~8.6 GB</td><td class="v" style="color: var(--blue);">~20 GB</td><td>—</td></tr>
+          </tbody>
+        </table>
+
+        <h3>The hybrid layer pattern · both 4B and 9B</h3>
+        <svg viewBox="0 0 1100 140" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: auto; margin-top: 0.6rem;">
+          <!-- 8 groups of 4 layers, total 32 -->
+          <text x="0" y="15" fill="#8b949e" font-family="Fira Code" font-size="10" letter-spacing="0.1em">32 LAYERS · 8× REPEAT OF {3× DELTANET + FFN  |  1× GATED-ATTN + FFN}</text>
+
+          <!-- draw 8 groups -->
+          <g font-family="Fira Code" font-size="8" fill="#8b949e">
+            <!-- group pattern, drawn 8 times, each group = 4 layers -->
+            <g transform="translate(0, 40)">
+              <!-- repeat each group at x = i * 135 -->
+              <g transform="translate(0,0)">
+                <rect x="0"  y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="32" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="64" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="96" y="0" width="30" height="50" fill="rgba(57,197,207,.25)" stroke="#39c5cf" stroke-width="1.2" rx="2"/>
+                <text x="15" y="30" text-anchor="middle" fill="#bc8cff">DN</text>
+                <text x="47" y="30" text-anchor="middle" fill="#bc8cff">DN</text>
+                <text x="79" y="30" text-anchor="middle" fill="#bc8cff">DN</text>
+                <text x="111" y="30" text-anchor="middle" fill="#39c5cf">FA</text>
+                <text x="63" y="70" text-anchor="middle" fill="#484f58" font-size="7" letter-spacing="0.1em">GROUP 1</text>
+              </g>
+              <!-- repeated groups, simplified -->
+              <g transform="translate(135,0)">
+                <rect x="0"  y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="32" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="64" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="96" y="0" width="30" height="50" fill="rgba(57,197,207,.25)" stroke="#39c5cf" stroke-width="1.2" rx="2"/>
+                <text x="63" y="70" text-anchor="middle" fill="#484f58" font-size="7" letter-spacing="0.1em">2</text>
+              </g>
+              <g transform="translate(270,0)">
+                <rect x="0"  y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="32" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="64" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="96" y="0" width="30" height="50" fill="rgba(57,197,207,.25)" stroke="#39c5cf" stroke-width="1.2" rx="2"/>
+                <text x="63" y="70" text-anchor="middle" fill="#484f58" font-size="7" letter-spacing="0.1em">3</text>
+              </g>
+              <g transform="translate(405,0)">
+                <rect x="0"  y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="32" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="64" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="96" y="0" width="30" height="50" fill="rgba(57,197,207,.25)" stroke="#39c5cf" stroke-width="1.2" rx="2"/>
+                <text x="63" y="70" text-anchor="middle" fill="#484f58" font-size="7" letter-spacing="0.1em">4</text>
+              </g>
+              <g transform="translate(540,0)">
+                <rect x="0"  y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="32" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="64" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="96" y="0" width="30" height="50" fill="rgba(57,197,207,.25)" stroke="#39c5cf" stroke-width="1.2" rx="2"/>
+                <text x="63" y="70" text-anchor="middle" fill="#484f58" font-size="7" letter-spacing="0.1em">5</text>
+              </g>
+              <g transform="translate(675,0)">
+                <rect x="0"  y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="32" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="64" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="96" y="0" width="30" height="50" fill="rgba(57,197,207,.25)" stroke="#39c5cf" stroke-width="1.2" rx="2"/>
+                <text x="63" y="70" text-anchor="middle" fill="#484f58" font-size="7" letter-spacing="0.1em">6</text>
+              </g>
+              <g transform="translate(810,0)">
+                <rect x="0"  y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="32" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="64" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="96" y="0" width="30" height="50" fill="rgba(57,197,207,.25)" stroke="#39c5cf" stroke-width="1.2" rx="2"/>
+                <text x="63" y="70" text-anchor="middle" fill="#484f58" font-size="7" letter-spacing="0.1em">7</text>
+              </g>
+              <g transform="translate(945,0)">
+                <rect x="0"  y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="32" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="64" y="0" width="30" height="50" fill="rgba(188,140,255,.2)" stroke="#bc8cff" stroke-width="0.8" rx="2"/>
+                <rect x="96" y="0" width="30" height="50" fill="rgba(57,197,207,.25)" stroke="#39c5cf" stroke-width="1.2" rx="2"/>
+                <text x="63" y="70" text-anchor="middle" fill="#484f58" font-size="7" letter-spacing="0.1em">GROUP 8</text>
+              </g>
+            </g>
+            <g transform="translate(0, 125)">
+              <rect x="0" y="0" width="12" height="8" fill="rgba(188,140,255,.25)" stroke="#bc8cff" stroke-width="0.5"/>
+              <text x="16" y="7" fill="#bc8cff">DN = Gated DeltaNet (linear attn · 32V / 16QK heads · head_dim 128)</text>
+              <rect x="440" y="0" width="12" height="8" fill="rgba(57,197,207,.25)" stroke="#39c5cf"/>
+              <text x="456" y="7" fill="#39c5cf">FA = Gated full-attention (16Q / 4KV · head_dim 256 · softmax)</text>
+            </g>
+          </g>
+        </svg>
+
+        <p style="margin-top: 1rem;">
+          <b>Why hybrid:</b> linear attention (Gated DeltaNet) is <code>O(n)</code>
+          in sequence length → enables 256 K native context. A sparse
+          sprinkling of full softmax attention (every 4th layer) preserves the
+          expressivity needed for in-context learning. The DeltaNet layers
+          don't round-trip cleanly through bnb 4-bit, which is
+          <b>why QLoRA is unstable on Qwen3.5</b> — use bf16 LoRA.
+        </p>
+      </section>
+
+      <!-- ──────────────────────── VRAM BUDGET ──────────────────────── -->
+      <div class="section-label"><span class="n">05</span> vram budget · where the bytes actually go</div>
+      <section class="panel reveal">
+        <h2>Qwen2.5-VL-7B at three regimes · on a 24 GB A10G</h2>
+        <p class="panel-sub">
+          Weights are not the whole story. Activations scale with
+          sequence length; gradients double the weights-worth of memory;
+          optimizer state (Adam: momentum + variance in fp32) triples it.
+          Here's where every GB goes during our run. Bar width is proportional
+          to GB consumed; red segment = spill risk.
+        </p>
+
+        <div class="vram-row">
+          <div class="vram-regime">A · full fp32 train <span class="meta">theoretical · 132 GB</span></div>
+          <div class="vram-bar">
+            <div class="vram-seg w" style="flex: 33;">weights · 33 GB</div>
+            <div class="vram-seg a" style="flex: 16;">acts · 16</div>
+            <div class="vram-seg g" style="flex: 33;">grads · 33 GB</div>
+            <div class="vram-seg o" style="flex: 66;">optimizer · 66 GB</div>
+          </div>
+          <div class="vram-label"><span><span class="k">total:</span> 148 GB</span><span class="tot">· does not fit 24 GB</span></div>
+        </div>
+
+        <div class="vram-row">
+          <div class="vram-regime">B · bf16 mixed + full finetune <span class="meta">still too large</span></div>
+          <div class="vram-bar">
+            <div class="vram-seg w" style="flex: 16.6;">weights · 16.6</div>
+            <div class="vram-seg a" style="flex: 6;">acts · 6</div>
+            <div class="vram-seg g" style="flex: 16.6;">grads · 16.6</div>
+            <div class="vram-seg o" style="flex: 66;">optimizer · 66</div>
+          </div>
+          <div class="vram-label"><span><span class="k">total:</span> ~105 GB</span><span class="tot">· multi-GPU territory</span></div>
+        </div>
+
+        <div class="vram-row">
+          <div class="vram-regime">C · QLoRA 4-bit + LoRA r=32 <span class="meta">our run · fits in 24 GB</span></div>
+          <div class="vram-bar">
+            <div class="vram-seg w" style="flex: 4.15;">nf4 base · 4.15</div>
+            <div class="vram-seg a" style="flex: 16;">activations · 16 GB</div>
+            <div class="vram-seg l" style="flex: 0.32;">LoRA · 0.32</div>
+            <div class="vram-seg g" style="flex: 0.32;">grad · 0.32</div>
+            <div class="vram-seg o" style="flex: 0.64;">opt · 0.64</div>
+            <div class="vram-seg free" style="flex: 2.9;">headroom · 2.9</div>
+          </div>
+          <div class="vram-label"><span><span class="k">total:</span> <b>~21.2 GB used · 2.9 GB free</b></span><span class="tot">· our actual run</span></div>
+          <div class="vram-legend">
+            <div class="legend-item"><span class="swatch" style="background: var(--blue);"></span>base weights (nf4)</div>
+            <div class="legend-item"><span class="swatch" style="background: var(--magenta);"></span>activations (batch × seq × hidden)</div>
+            <div class="legend-item"><span class="swatch" style="background: var(--red);"></span>LoRA B·A (bf16, trainable)</div>
+            <div class="legend-item"><span class="swatch" style="background: var(--green);"></span>LoRA gradients</div>
+            <div class="legend-item"><span class="swatch" style="background: var(--amber);"></span>Adam state (LoRA only)</div>
+            <div class="legend-item"><span class="swatch" style="background: var(--line-soft);"></span>free</div>
+          </div>
+        </div>
+
+        <p style="margin-top: 1rem;">
+          The decisive win is <b>item 3 vs item 2</b>: the full 7 B base stays
+          in 4-bit (<code>4.15 GB</code>, frozen), only the <b>80.7 M LoRA
+          params</b> get bf16 weights + bf16 gradients + fp32 Adam state
+          (<code>~0.32 + 0.32 + 0.64 ≈ 1.3 GB</code>). Activations dominate the
+          remaining budget — that's why
+          <b>halving <code>max_pixels</code> or using dynamic padding</b> is the
+          first OOM lever, not shrinking LoRA.
+        </p>
+      </section>
+
+      <!-- ──────────────────────── MODEL COMPARISON MATRIX ──────────────────────── -->
+      <div class="section-label"><span class="n">06</span> summary matrix · hf configs at a glance</div>
+      <section class="panel reveal">
+        <h2>One source of truth · pulled from <code>config.json</code></h2>
+        <table class="m-table">
+          <thead>
+            <tr>
+              <th>field</th>
+              <th>Qwen2.5-VL-7B</th>
+              <th>Qwen3.5-4B</th>
+              <th>Qwen3.5-9B</th>
+              <th>Qwen3-Omni Thinker</th>
+              <th>Qwen3-Omni Talker</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>hidden_size</td><td class="v">3584</td><td class="v">2560</td><td class="v">4096</td><td class="v">2048</td><td class="v">1024</td></tr>
+            <tr><td>num_hidden_layers</td><td class="v">28</td><td class="v">32</td><td class="v">32</td><td class="v">48</td><td class="v">20</td></tr>
+            <tr><td>num_attention_heads</td><td class="v">28</td><td class="v">16</td><td class="v">16</td><td class="v">32</td><td class="v">16</td></tr>
+            <tr><td>num_key_value_heads</td><td class="v">4</td><td class="v">4</td><td class="v">4</td><td class="v">4</td><td class="v">2</td></tr>
+            <tr><td>head_dim</td><td class="v">128</td><td class="v">256</td><td class="v">256</td><td class="v">128</td><td class="v">128</td></tr>
+            <tr><td>intermediate_size (FFN)</td><td class="v">18944</td><td class="v">9216</td><td class="v">12288</td><td class="v">768 moe</td><td class="v">384 moe / 768 shared</td></tr>
+            <tr><td>num_experts</td><td class="v">—</td><td class="v">—</td><td class="v">—</td><td class="v"><span class="badge moe">128</span></td><td class="v"><span class="badge moe">128</span></td></tr>
+            <tr><td>experts per token</td><td class="v">—</td><td class="v">—</td><td class="v">—</td><td class="v">8</td><td class="v">6</td></tr>
+            <tr><td>vocab_size</td><td class="v">152 064</td><td class="v">248 320</td><td class="v">248 320</td><td class="v">152 064</td><td class="v">3 072</td></tr>
+            <tr><td>max_position_embeddings</td><td class="v">128 000</td><td class="v">262 144</td><td class="v">262 144</td><td class="v">65 536</td><td class="v">65 536</td></tr>
+            <tr><td>rope_theta</td><td class="v">1.0e6</td><td class="v">1.0e7</td><td class="v">1.0e7</td><td class="v">1.0e6</td><td class="v">1.0e6</td></tr>
+            <tr><td>torch_dtype</td><td class="v"><span class="badge bf16">BF16</span></td><td class="v"><span class="badge bf16">BF16</span></td><td class="v"><span class="badge bf16">BF16</span></td><td class="v"><span class="badge bf16">BF16</span></td><td class="v"><span class="badge bf16">BF16</span></td></tr>
+            <tr><td>tie_word_embeddings</td><td class="v">false</td><td class="v" style="color: var(--green);">true</td><td class="v">false</td><td class="v">false</td><td class="v">—</td></tr>
+            <tr><td>ViT layers · hidden · patch</td><td class="v">32 · 1280 · 14</td><td class="v">24 · 1024 · 16</td><td class="v">27 · 1152 · 16</td><td class="v">27 · 1152 · 16 · <code>deepstack=[8,16,24]</code></td><td class="v">—</td></tr>
+            <tr><td>audio encoder</td><td class="v">—</td><td class="v">—</td><td class="v">—</td><td class="v">32 layers · d=1280 · 128 mel</td><td class="v">—</td></tr>
+            <tr><td>approx total params</td><td class="v" style="color: var(--amber);">~8.29 B</td><td class="v" style="color: var(--amber);">~4.3 B</td><td class="v" style="color: var(--amber);">~10 B</td><td class="v" style="color: var(--amber);">~22 B · 2.2 B active</td><td class="v" style="color: var(--amber);">~7 B · 700 M active</td></tr>
+            <tr><td>bf16 footprint</td><td class="v"><span class="badge bf16">16.6 GB</span></td><td class="v"><span class="badge bf16">8.6 GB</span></td><td class="v"><span class="badge bf16">20 GB</span></td><td class="v"><span class="badge bf16">~44 GB</span></td><td class="v"><span class="badge bf16">~14 GB</span></td></tr>
+            <tr><td>nf4 footprint</td><td class="v"><span class="badge nf4">4.15 GB</span></td><td class="v"><span class="badge nf4">2.2 GB <span style="color: var(--red);">⚠</span></span></td><td class="v"><span class="badge nf4">5 GB <span style="color: var(--red);">⚠</span></span></td><td class="v"><span class="badge nf4">~11 GB</span></td><td class="v"><span class="badge nf4">~3.5 GB</span></td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top: 1rem; font-size: 0.62rem; color: var(--mute);">
+          <span style="color: var(--red);">⚠</span> QLoRA 4-bit on Qwen3.5 is
+          unstable (Gated-DeltaNet hybrid) — use bf16 or 8-bit. See
+          <a href="08-finetuning_guide.html#" style="color: var(--blue); text-decoration: none;">master guide §02</a>.
+          Configs pulled from <code>huggingface.co/Qwen/&lt;model&gt;/raw/main/config.json</code>.
+          Per-model param totals are approximations from official cards / naming conventions.
+        </p>
+      </section>
+
+      <!-- ──────────────────────── CLARIFICATION ──────────────────────── -->
+      <div class="section-label"><span class="n">07</span> note · there is no qwen3.5-omni (yet)</div>
+      <section class="panel reveal">
+        <p>
+          <b>Omni line naming as of 2026-04-18:</b> the current open-weight Omni
+          family is <code>Qwen3-Omni-30B-A3B</code> (Sep 2025, arXiv 2509.17765)
+          in three post-training variants — <b>Instruct</b>, <b>Thinking</b>,
+          and <b>Captioner</b>. There is
+          <b>no Qwen3.5-Omni release</b>; Qwen3.5 itself is the natively-VL
+          text+image line, while Omni (audio + video in, speech out) stays
+          under the <code>Qwen3-Omni-*</code> branding. Smaller dense Omni
+          (3B / 7B) only exists in the earlier <code>Qwen2.5-Omni</code>
+          generation.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      architecture visualization · configs verified via HF raw · <a href="08-finetuning_guide.html">back to master guide</a>
+    </footer>
+
+    <script>
+      // reveal on scroll
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("in");
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.1 });
+      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+    </script>
+  </body>
+</html>
