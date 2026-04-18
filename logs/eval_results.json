@@ -1,0 +1,8 @@
+{
+  "num_samples": 20,
+  "avg_cer": 29.9098,
+  "avg_wer": 32.0413,
+  "exact_match_rate": 0.0,
+  "valid_json_rate": 100.0,
+  "avg_inference_time": 48.02
+}
