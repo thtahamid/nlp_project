@@ -4,7 +4,7 @@
 **Notebook:** `notebook/06_evaluation.ipynb`
 **Adapter:** `models/lora_adapter/` (checkpoint-120, from training run 01)
 **Eval set:** `sample_training_data/eval/eval.jsonl` (20 samples)
-**Results file:** `logs/eval_results.json`
+**Results file:** `logs/01_eval_results.json`
 
 ## Setup
 - **Base model:** Qwen/Qwen2.5-VL-7B-Instruct (4-bit NF4 + double quant, bf16 compute)
