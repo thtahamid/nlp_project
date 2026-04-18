@@ -43,4 +43,4 @@ Eval loss improves through epoch 2 then ticks back up in epoch 3 while train los
 
 - `models/lora_adapter/run-2/` — merged final adapter + `checkpoint-1120` + `checkpoint-1680`
 - `data/train/train.jsonl`, `data/eval/eval.jsonl` — 1120 / 280 samples with `gpt-5.4-mini` reference transcriptions
-- `docs/pipeline_visualization/` — interactive pipeline diagrams and the training-term glossary referenced by the training report
+- `docs/explainers/` — interactive pipeline diagrams, concepts guide, glossary, and the project report

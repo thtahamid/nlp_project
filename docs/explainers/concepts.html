@@ -1,0 +1,2787 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Foundations — Concepts for a Vision-Language Fine-Tune</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg: #0a0c10;
+        --surface: rgba(22, 27, 34, 0.85);
+        --surface-2: rgba(22, 27, 34, 0.55);
+        --line: #30363d;
+        --line-soft: #21262d;
+        --text: #c9d1d9;
+        --mute: #484f58;
+        --sub: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --amber: #d29922;
+        --magenta: #bc8cff;
+        --red: #f85149;
+        --cyan: #39d3c3;
+      }
+
+      html { scroll-behavior: smooth; }
+      body {
+        background: var(--bg);
+        font-family: "Fira Code", "Cascadia Code", monospace;
+        color: var(--text);
+        min-height: 100vh;
+        overflow-x: hidden;
+        line-height: 1.5;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(48, 54, 61, 0.35) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(48, 54, 61, 0.35) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
+      body::after {
+        content: "";
+        position: fixed;
+        top: -30%; left: 50%;
+        width: 1100px; height: 700px;
+        transform: translateX(-50%);
+        background: radial-gradient(ellipse at center,
+          rgba(88, 166, 255, 0.09) 0%,
+          rgba(188, 140, 255, 0.04) 35%,
+          transparent 65%);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* ── HEADER ── */
+      header {
+        text-align: center;
+        padding: 3.5rem 1rem 1rem;
+        position: relative;
+        z-index: 10;
+      }
+      header .tag {
+        font-size: 0.58rem;
+        letter-spacing: 0.28em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.8rem;
+      }
+      header h1 {
+        font-size: 1.35rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--blue);
+        font-weight: 500;
+      }
+      header h1 span.accent { color: var(--amber); }
+      header h1 span.muted  { color: var(--mute); }
+      header .sub {
+        font-size: 0.75rem;
+        color: var(--sub);
+        letter-spacing: 0.06em;
+        margin-top: 0.8rem;
+        max-width: 640px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.8;
+      }
+      .crumb {
+        font-size: 0.6rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-top: 1.2rem;
+      }
+      .crumb a { color: var(--sub); text-decoration: none; transition: color .15s; }
+      .crumb a:hover { color: var(--blue); }
+      .crumb .arrow { color: var(--mute); margin: 0 .4rem; }
+
+      main {
+        position: relative;
+        z-index: 10;
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 1rem 1.5rem 5rem;
+      }
+
+      /* ── TABLE OF CONTENTS ── */
+      .toc {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 1.4rem 1.5rem;
+        margin-top: 1.6rem;
+        position: relative;
+      }
+      .toc::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg,
+          transparent, var(--blue), var(--cyan), var(--green),
+          var(--amber), var(--magenta), transparent);
+        opacity: 0.6;
+      }
+      .toc-title {
+        font-size: 0.6rem;
+        letter-spacing: 0.22em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 1rem;
+      }
+      .toc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.6rem;
+      }
+      .toc-item {
+        display: block;
+        text-decoration: none;
+        padding: 0.7rem 0.9rem;
+        border: 1px solid var(--line-soft);
+        border-left: 2px solid var(--blue);
+        border-radius: 5px;
+        background: var(--surface-2);
+        transition: all .2s ease;
+      }
+      .toc-item:hover {
+        transform: translateY(-2px);
+        border-color: var(--blue);
+        background: rgba(22, 44, 78, 0.35);
+      }
+      .toc-item .n {
+        font-size: 0.56rem;
+        color: var(--mute);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+      .toc-item .t {
+        font-size: 0.75rem;
+        color: var(--text);
+        margin-top: 0.3rem;
+        letter-spacing: 0.02em;
+      }
+      .toc-item .d {
+        font-size: 0.58rem;
+        color: var(--sub);
+        margin-top: 0.3rem;
+        line-height: 1.6;
+      }
+      .toc-item.g { border-left-color: var(--green); }
+      .toc-item.g:hover { background: rgba(16, 46, 22, 0.35); }
+      .toc-item.a { border-left-color: var(--amber); }
+      .toc-item.a:hover { background: rgba(48, 36, 8, 0.4); }
+      .toc-item.m { border-left-color: var(--magenta); }
+      .toc-item.m:hover { background: rgba(40, 22, 68, 0.35); }
+      .toc-item.c { border-left-color: var(--cyan); }
+      .toc-item.c:hover { background: rgba(10, 50, 48, 0.35); }
+      .toc-item.r { border-left-color: var(--red); }
+      .toc-item.r:hover { background: rgba(48, 16, 16, 0.35); }
+
+      /* ── SECTION LABELS ── */
+      .section-label {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        font-size: 0.64rem;
+        letter-spacing: 0.22em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin: 3.2rem 0 1rem;
+        scroll-margin-top: 1rem;
+      }
+      .section-label::before {
+        content: "";
+        width: 22px; height: 1px; background: var(--line);
+      }
+      .section-label::after {
+        content: "";
+        flex: 1; height: 1px;
+        background: linear-gradient(90deg, var(--line), transparent);
+        animation: sweep 6s ease-in-out infinite;
+      }
+      @keyframes sweep {
+        0%, 100% { opacity: .55; }
+        50% { opacity: 1; }
+      }
+      .section-label .n { color: var(--green); }
+
+      /* ── PANELS ── */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1.5rem 1.7rem;
+        margin-bottom: 1rem;
+        position: relative;
+      }
+      .panel h2 {
+        font-size: 0.9rem;
+        letter-spacing: 0.04em;
+        color: var(--text);
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+      }
+      .panel h3 {
+        font-size: 0.74rem;
+        color: var(--blue);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 1.3rem 0 0.6rem;
+      }
+      .panel h3.g { color: var(--green); }
+      .panel h3.a { color: var(--amber); }
+      .panel h3.m { color: var(--magenta); }
+      .panel h3.c { color: var(--cyan); }
+      .panel p {
+        font-size: 0.72rem;
+        color: var(--sub);
+        line-height: 1.85;
+        margin-bottom: 0.85rem;
+      }
+      .panel p code, .panel li code {
+        color: var(--amber);
+        background: rgba(0,0,0,.25);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.92em;
+      }
+      .panel p b, .panel li b { color: var(--text); font-weight: 500; }
+      .panel ul, .panel ol {
+        margin: 0.4rem 0 0.8rem 1.1rem;
+        font-size: 0.72rem;
+        color: var(--sub);
+        line-height: 1.85;
+      }
+      .panel ul li, .panel ol li { margin-bottom: 0.35rem; }
+
+      /* ── CALLOUT BOXES ── */
+      .callout {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--blue);
+        border-radius: 0 6px 6px 0;
+        padding: 0.9rem 1.1rem;
+        margin: 1rem 0;
+        font-size: 0.7rem;
+        color: var(--sub);
+        line-height: 1.85;
+      }
+      .callout.g { border-left-color: var(--green); }
+      .callout.a { border-left-color: var(--amber); }
+      .callout.m { border-left-color: var(--magenta); }
+      .callout.c { border-left-color: var(--cyan); }
+      .callout.r { border-left-color: var(--red); }
+      .callout b { color: var(--text); font-weight: 500; }
+      .callout code {
+        color: var(--amber);
+        background: rgba(0,0,0,.25);
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.92em;
+      }
+      .callout .lbl {
+        display: block;
+        font-size: 0.54rem;
+        letter-spacing: 0.22em;
+        color: var(--blue);
+        text-transform: uppercase;
+        margin-bottom: 0.35rem;
+      }
+      .callout.g .lbl { color: var(--green); }
+      .callout.a .lbl { color: var(--amber); }
+      .callout.m .lbl { color: var(--magenta); }
+      .callout.c .lbl { color: var(--cyan); }
+      .callout.r .lbl { color: var(--red); }
+
+      /* ── PILL GRID ── */
+      .pill-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 0.7rem;
+        margin: 0.8rem 0 0.4rem;
+      }
+      .pill {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--blue);
+        border-radius: 5px;
+        padding: 0.85rem 1rem;
+        transition: transform .2s ease;
+      }
+      .pill:hover { transform: translateY(-2px); }
+      .pill.g { border-left-color: var(--green); }
+      .pill.a { border-left-color: var(--amber); }
+      .pill.m { border-left-color: var(--magenta); }
+      .pill.c { border-left-color: var(--cyan); }
+      .pill.r { border-left-color: var(--red); }
+      .pill-name {
+        font-size: 0.7rem;
+        color: var(--blue);
+        letter-spacing: 0.04em;
+        margin-bottom: 0.15rem;
+      }
+      .pill.g .pill-name { color: var(--green); }
+      .pill.a .pill-name { color: var(--amber); }
+      .pill.m .pill-name { color: var(--magenta); }
+      .pill.c .pill-name { color: var(--cyan); }
+      .pill.r .pill-name { color: var(--red); }
+      .pill-sub {
+        font-size: 0.56rem;
+        letter-spacing: 0.14em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+      }
+      .pill-body {
+        font-size: 0.64rem;
+        color: var(--sub);
+        line-height: 1.75;
+      }
+      .pill-body code { color: var(--amber); font-size: 0.92em; }
+
+      /* ── TOKENIZER VIZ ── */
+      .tok-input {
+        width: 100%;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 0.7rem 0.9rem;
+        color: var(--text);
+        font-family: inherit;
+        font-size: 0.78rem;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .tok-input:focus { border-color: var(--blue); }
+      .tok-display {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 4px;
+        min-height: 64px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .tok {
+        display: inline-block;
+        padding: 0.35rem 0.6rem;
+        border-radius: 3px;
+        font-size: 0.72rem;
+        font-family: inherit;
+        letter-spacing: 0.01em;
+        background: rgba(88, 166, 255, 0.12);
+        border: 1px solid rgba(88, 166, 255, 0.4);
+        color: var(--blue);
+        animation: tokSpawn 0.4s cubic-bezier(.2,.7,.2,1);
+      }
+      .tok.t2 { background: rgba(63, 185, 80, 0.12); border-color: rgba(63, 185, 80, 0.4); color: var(--green); }
+      .tok.t3 { background: rgba(210, 153, 34, 0.12); border-color: rgba(210, 153, 34, 0.4); color: var(--amber); }
+      .tok.t4 { background: rgba(188, 140, 255, 0.12); border-color: rgba(188, 140, 255, 0.4); color: var(--magenta); }
+      .tok.t5 { background: rgba(57, 211, 195, 0.12); border-color: rgba(57, 211, 195, 0.4); color: var(--cyan); }
+      .tok-id {
+        font-size: 0.55rem;
+        color: var(--mute);
+        margin-left: 0.3rem;
+      }
+      @keyframes tokSpawn {
+        0% { opacity: 0; transform: scale(0.85) translateY(4px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      .tok-meta {
+        margin-top: 0.8rem;
+        display: flex;
+        gap: 1.4rem;
+        font-size: 0.62rem;
+        color: var(--sub);
+        flex-wrap: wrap;
+      }
+      .tok-meta b { color: var(--text); margin-left: 0.3rem; }
+
+      /* ── ATTENTION HEATMAP ── */
+      .attn-wrap {
+        margin-top: 1rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 6px;
+        padding: 1.2rem 1.4rem;
+      }
+      .attn-tokens {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 1rem;
+        justify-content: center;
+      }
+      .attn-tok {
+        padding: 0.4rem 0.75rem;
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        font-size: 0.72rem;
+        cursor: pointer;
+        transition: all 0.22s ease;
+        background: var(--surface-2);
+        color: var(--sub);
+      }
+      .attn-tok:hover,
+      .attn-tok.active {
+        background: rgba(88, 166, 255, 0.15);
+        border-color: var(--blue);
+        color: var(--blue);
+        transform: translateY(-2px);
+      }
+      .attn-tok.target {
+        background: rgba(63, 185, 80, 0.15) !important;
+        border-color: var(--green) !important;
+        color: var(--green) !important;
+      }
+      .attn-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+        gap: 3px;
+        margin-top: 0.8rem;
+      }
+      .attn-cell {
+        aspect-ratio: 1;
+        border: 1px solid var(--line-soft);
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.55rem;
+        color: var(--mute);
+        transition: background 0.5s ease, color 0.3s ease;
+      }
+      .attn-caption {
+        margin-top: 0.9rem;
+        font-size: 0.62rem;
+        color: var(--sub);
+        text-align: center;
+        line-height: 1.6;
+      }
+      .attn-caption b { color: var(--text); }
+
+      /* ── VISION PATCHES ── */
+      .patch-demo {
+        margin-top: 1rem;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 0.9rem;
+        align-items: center;
+      }
+      @media (max-width: 720px) {
+        .patch-demo { grid-template-columns: 1fr; }
+        .patch-arrow { transform: rotate(90deg); }
+      }
+      .patch-box {
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 6px;
+        padding: 1rem;
+        text-align: center;
+      }
+      .patch-tag {
+        font-size: 0.56rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.8rem;
+      }
+      .patch-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 2px;
+        aspect-ratio: 1;
+        max-width: 240px;
+        margin: 0 auto;
+      }
+      .patch-cell {
+        background: rgba(88, 166, 255, 0.05);
+        border: 1px solid rgba(88, 166, 255, 0.15);
+        border-radius: 1px;
+        animation: patchFade 2.4s ease-in-out infinite;
+      }
+      @keyframes patchFade {
+        0%, 100% { background: rgba(88, 166, 255, 0.05); }
+        50% { background: rgba(88, 166, 255, 0.25); }
+      }
+      .patch-arrow {
+        font-size: 1.3rem;
+        color: var(--mute);
+        text-align: center;
+        animation: arrowPulse 2s infinite;
+      }
+      @keyframes arrowPulse {
+        0%, 100% { transform: translateX(0); opacity: 0.5; }
+        50% { transform: translateX(5px); opacity: 1; }
+      }
+      .patch-tokens {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        justify-content: center;
+        max-height: 280px;
+        overflow: hidden;
+      }
+      .vtok {
+        width: 26px; height: 26px;
+        background: rgba(88, 166, 255, 0.1);
+        border: 1px solid rgba(88, 166, 255, 0.3);
+        border-radius: 2px;
+        font-size: 0.5rem;
+        color: var(--blue);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: vtokPulse 3s ease-in-out infinite;
+      }
+      @keyframes vtokPulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+
+      /* ── LORA VIZ ── */
+      .lora-viz {
+        margin-top: 1rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 6px;
+        padding: 1.3rem 1.4rem;
+      }
+      .lora-ctrls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.2rem;
+        align-items: center;
+        margin-bottom: 1.2rem;
+      }
+      .lora-slider {
+        flex: 1 1 220px;
+      }
+      .lora-slider label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.6rem;
+        color: var(--mute);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 0.45rem;
+      }
+      .lora-slider label .val {
+        color: var(--blue);
+        font-size: 0.78rem;
+        text-transform: none;
+      }
+      .lora-slider input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        background: var(--line);
+        border-radius: 2px;
+        outline: none;
+      }
+      .lora-slider input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        background: var(--blue);
+        cursor: pointer;
+        border: 2px solid var(--bg);
+      }
+      .lora-slider input[type="range"]::-moz-range-thumb {
+        width: 14px; height: 14px;
+        border-radius: 50%;
+        background: var(--blue);
+        cursor: pointer;
+        border: 2px solid var(--bg);
+      }
+      .lora-math {
+        display: grid;
+        grid-template-columns: auto auto auto auto auto auto auto;
+        gap: 0.6rem;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1.2rem;
+        font-family: inherit;
+      }
+      @media (max-width: 720px) {
+        .lora-math { grid-template-columns: 1fr; justify-content: start; gap: 0.3rem; }
+      }
+      .matrix-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        color: var(--text);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+      }
+      .matrix-box .dims {
+        position: absolute;
+        font-size: 0.55rem;
+        color: var(--mute);
+      }
+      .matrix-box .dims.top { top: -1.2rem; left: 50%; transform: translateX(-50%); }
+      .matrix-box .dims.side { right: -2.6rem; top: 50%; transform: translateY(-50%); }
+      .matrix-box .lbl {
+        position: absolute;
+        bottom: -1.3rem;
+        font-size: 0.58rem;
+        letter-spacing: 0.08em;
+      }
+      .matrix-box.W  { width: 130px; height: 130px; color: var(--blue);   border-color: rgba(88,166,255,.45); background: rgba(88,166,255,.06); }
+      .matrix-box.A  {  color: var(--amber);  border-color: rgba(210,153,34,.45); background: rgba(210,153,34,.06); }
+      .matrix-box.B  {  color: var(--green);  border-color: rgba(63,185,80,.45); background: rgba(63,185,80,.06); }
+      .op {
+        font-size: 1.3rem;
+        color: var(--sub);
+      }
+      .lora-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.6rem;
+        margin-top: 2rem;
+      }
+      .lora-stat {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-left: 2px solid var(--blue);
+        border-radius: 5px;
+        padding: 0.7rem 0.9rem;
+      }
+      .lora-stat.g { border-left-color: var(--green); }
+      .lora-stat.a { border-left-color: var(--amber); }
+      .lora-stat.m { border-left-color: var(--magenta); }
+      .lora-stat-tag {
+        font-size: 0.54rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+      }
+      .lora-stat-val {
+        font-size: 1rem;
+        color: var(--blue);
+        margin-top: 0.25rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .lora-stat.g .lora-stat-val { color: var(--green); }
+      .lora-stat.a .lora-stat-val { color: var(--amber); }
+      .lora-stat.m .lora-stat-val { color: var(--magenta); }
+      .lora-stat-unit { color: var(--mute); font-size: 0.7rem; margin-left: 0.25rem; }
+
+      /* ── QUANT PRECISION ── */
+      .quant-ctrls {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        margin: 1rem 0;
+      }
+      .quant-btn {
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--sub);
+        font-family: inherit;
+        font-size: 0.6rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.4rem 0.8rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .quant-btn:hover { border-color: var(--blue); color: var(--blue); }
+      .quant-btn.active {
+        border-color: var(--green);
+        color: var(--green);
+        background: rgba(63, 185, 80, 0.08);
+      }
+      .bit-strip {
+        display: flex;
+        gap: 2px;
+        margin-top: 0.8rem;
+        padding: 0.7rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      .bit {
+        min-width: 16px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6rem;
+        border-radius: 2px;
+        background: rgba(88, 166, 255, 0.1);
+        border: 1px solid rgba(88, 166, 255, 0.3);
+        color: var(--blue);
+        transition: all 0.3s ease;
+      }
+      .bit.sign { background: rgba(255, 123, 114, 0.12); border-color: rgba(255, 123, 114, 0.45); color: var(--red); }
+      .bit.exp  { background: rgba(210, 153, 34, 0.12); border-color: rgba(210, 153, 34, 0.45); color: var(--amber); }
+      .bit.mant { background: rgba(63, 185, 80, 0.1); border-color: rgba(63, 185, 80, 0.35); color: var(--green); }
+      .bit.off  { background: var(--line-soft); border-color: var(--line); color: var(--mute); opacity: 0.5; }
+      .quant-info {
+        margin-top: 0.8rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.6rem;
+        font-size: 0.62rem;
+      }
+      .quant-info-card {
+        background: var(--surface-2);
+        padding: 0.6rem 0.8rem;
+        border: 1px solid var(--line-soft);
+        border-radius: 4px;
+      }
+      .quant-info-card .tag {
+        font-size: 0.52rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.3rem;
+      }
+      .quant-info-card .v { color: var(--text); font-size: 0.7rem; }
+
+      /* ── MEMORY VIZ ── */
+      .mem-bars {
+        display: grid;
+        gap: 0.6rem;
+        margin-top: 1rem;
+      }
+      .mem-row {
+        display: grid;
+        grid-template-columns: 150px 1fr 100px;
+        gap: 0.9rem;
+        align-items: center;
+        font-size: 0.66rem;
+      }
+      @media (max-width: 620px) {
+        .mem-row { grid-template-columns: 110px 1fr 70px; gap: 0.5rem; font-size: 0.6rem; }
+      }
+      .mem-lbl { color: var(--sub); letter-spacing: 0.04em; }
+      .mem-lbl b { color: var(--text); }
+      .mem-track {
+        height: 22px;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 3px;
+        position: relative;
+        overflow: hidden;
+      }
+      .mem-fill {
+        position: absolute;
+        top: 0; left: 0; bottom: 0;
+        width: 0;
+        background: linear-gradient(90deg, var(--blue), var(--cyan));
+        transition: width 1.3s cubic-bezier(.2,.7,.3,1);
+      }
+      .mem-fill.w2 { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+      .mem-fill.w3 { background: linear-gradient(90deg, var(--amber), var(--magenta)); }
+      .mem-fill.w4 { background: linear-gradient(90deg, var(--red), var(--amber)); }
+      .mem-val { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+
+      /* ── TRAINING LOOP ANIMATION ── */
+      .loop-viz {
+        margin-top: 1rem;
+        padding: 1.4rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 6px;
+      }
+      .loop-stages {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.5rem;
+        position: relative;
+      }
+      @media (max-width: 820px) { .loop-stages { grid-template-columns: 1fr 1fr; } }
+      .loop-stage {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 0.85rem 0.8rem;
+        text-align: center;
+        position: relative;
+        transition: all 0.3s;
+      }
+      .loop-stage.active {
+        border-color: var(--green);
+        box-shadow: 0 0 18px rgba(63,185,80,0.3);
+        transform: translateY(-2px);
+      }
+      .loop-stage .n {
+        font-size: 0.52rem;
+        letter-spacing: 0.18em;
+        color: var(--mute);
+        text-transform: uppercase;
+      }
+      .loop-stage .t {
+        font-size: 0.7rem;
+        margin-top: 0.3rem;
+        color: var(--blue);
+        letter-spacing: 0.04em;
+      }
+      .loop-stage.active .t { color: var(--green); }
+      .loop-stage .d {
+        font-size: 0.55rem;
+        color: var(--sub);
+        margin-top: 0.3rem;
+        line-height: 1.55;
+      }
+      .loop-ctrl {
+        display: flex;
+        gap: 0.6rem;
+        justify-content: center;
+        margin-top: 1.2rem;
+      }
+      .loop-btn {
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--sub);
+        font-family: inherit;
+        font-size: 0.6rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        padding: 0.4rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .loop-btn:hover { border-color: var(--green); color: var(--green); }
+      .loop-counter {
+        text-align: center;
+        margin-top: 0.8rem;
+        font-size: 0.58rem;
+        color: var(--mute);
+        letter-spacing: 0.12em;
+      }
+      .loop-counter b { color: var(--green); }
+
+      /* ── KV CACHE DEMO ── */
+      .kv-compare {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8rem;
+        margin-top: 1rem;
+      }
+      @media (max-width: 680px) { .kv-compare { grid-template-columns: 1fr; } }
+      .kv-box {
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 6px;
+        padding: 1rem 1.1rem;
+      }
+      .kv-title {
+        font-size: 0.66rem;
+        letter-spacing: 0.06em;
+        color: var(--blue);
+        margin-bottom: 0.5rem;
+      }
+      .kv-box.cached .kv-title { color: var(--green); }
+      .kv-sub {
+        font-size: 0.55rem;
+        letter-spacing: 0.16em;
+        color: var(--mute);
+        text-transform: uppercase;
+        margin-bottom: 0.7rem;
+      }
+      .kv-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 3px;
+        margin-bottom: 0.6rem;
+      }
+      .kv-cell {
+        aspect-ratio: 1;
+        border-radius: 2px;
+        border: 1px solid var(--line-soft);
+        font-size: 0.48rem;
+        color: var(--mute);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .kv-cell.computed {
+        background: rgba(88, 166, 255, 0.15);
+        border-color: rgba(88, 166, 255, 0.4);
+        color: var(--blue);
+        animation: kvCompute 0.6s ease-out;
+      }
+      .kv-cell.reused {
+        background: rgba(63, 185, 80, 0.1);
+        border-color: rgba(63, 185, 80, 0.3);
+        color: var(--green);
+      }
+      @keyframes kvCompute {
+        0% { transform: scale(0.8); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      .kv-count {
+        font-size: 0.62rem;
+        color: var(--sub);
+      }
+      .kv-count b { color: var(--text); }
+
+      /* ── STACK DIAGRAM ── */
+      .stack {
+        display: grid;
+        gap: 4px;
+        margin-top: 1rem;
+      }
+      .stack-layer {
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--blue);
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 1rem;
+        font-size: 0.66rem;
+        transition: all 0.2s;
+      }
+      .stack-layer:hover {
+        transform: translateX(4px);
+        background: rgba(22, 44, 78, 0.3);
+      }
+      @media (max-width: 640px) {
+        .stack-layer { grid-template-columns: 1fr; gap: 0.3rem; }
+      }
+      .stack-layer.l2 { border-left-color: var(--green); }
+      .stack-layer.l3 { border-left-color: var(--amber); }
+      .stack-layer.l4 { border-left-color: var(--magenta); }
+      .stack-layer.l5 { border-left-color: var(--cyan); }
+      .stack-layer.l6 { border-left-color: var(--red); }
+      .stack-name {
+        color: var(--blue);
+        letter-spacing: 0.04em;
+        font-size: 0.72rem;
+      }
+      .stack-layer.l2 .stack-name { color: var(--green); }
+      .stack-layer.l3 .stack-name { color: var(--amber); }
+      .stack-layer.l4 .stack-name { color: var(--magenta); }
+      .stack-layer.l5 .stack-name { color: var(--cyan); }
+      .stack-layer.l6 .stack-name { color: var(--red); }
+      .stack-desc { color: var(--sub); line-height: 1.75; }
+      .stack-desc code { color: var(--amber); font-size: 0.92em; }
+
+      /* ── PIPELINE FLOW ── */
+      .flow-map {
+        margin-top: 1.1rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 8px;
+        padding: 1.5rem 1rem 2rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .flow-lanes {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.4rem;
+        position: relative;
+      }
+      @media (max-width: 1020px) { .flow-lanes { grid-template-columns: repeat(3, 1fr); } }
+      @media (max-width: 560px) { .flow-lanes { grid-template-columns: 1fr 1fr; } }
+      .flow-node {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 0.8rem 0.7rem;
+        text-align: center;
+        transition: transform .2s, border-color .2s;
+        cursor: pointer;
+      }
+      .flow-node:hover {
+        transform: translateY(-3px);
+        border-color: var(--blue);
+        box-shadow: 0 0 14px rgba(88,166,255,0.15);
+      }
+      .flow-node .fn {
+        font-size: 0.5rem;
+        letter-spacing: 0.2em;
+        color: var(--mute);
+        text-transform: uppercase;
+      }
+      .flow-node .ft {
+        font-size: 0.72rem;
+        color: var(--blue);
+        margin: 0.3rem 0 0.3rem;
+        letter-spacing: 0.04em;
+      }
+      .flow-node:nth-child(2) .ft { color: var(--green); }
+      .flow-node:nth-child(3) .ft { color: var(--amber); }
+      .flow-node:nth-child(4) .ft { color: var(--magenta); }
+      .flow-node:nth-child(5) .ft { color: var(--cyan); }
+      .flow-node:nth-child(6) .ft { color: var(--red); }
+      .flow-node:nth-child(7) .ft { color: var(--blue); }
+      .flow-node .fd {
+        font-size: 0.55rem;
+        color: var(--sub);
+        line-height: 1.6;
+      }
+      .flow-pkt {
+        position: absolute;
+        top: 50%;
+        left: -6px;
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: var(--blue);
+        box-shadow: 0 0 10px var(--blue);
+        transform: translateY(-50%);
+        animation: pktFlow 5s cubic-bezier(.6,.05,.4,.95) infinite;
+        z-index: 2;
+      }
+      .flow-pkt.p2 { animation-delay: 1s; background: var(--green); box-shadow: 0 0 10px var(--green); }
+      .flow-pkt.p3 { animation-delay: 2s; background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+      .flow-pkt.p4 { animation-delay: 3s; background: var(--magenta); box-shadow: 0 0 10px var(--magenta); }
+      .flow-pkt.p5 { animation-delay: 4s; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+      @keyframes pktFlow {
+        0% { left: -2%; opacity: 0; }
+        6% { opacity: 1; }
+        94% { opacity: 1; }
+        100% { left: 102%; opacity: 0; }
+      }
+      @media (max-width: 1020px) { .flow-pkt { display: none; } }
+
+      /* ── TOC anchor top-margin so section-label scrolls cleanly under the sticky(?) top ── */
+      section, .section-label { scroll-margin-top: 1.5rem; }
+
+      /* ── REVEAL ON SCROLL ── */
+      .reveal {
+        opacity: 0;
+        transform: translateY(16px);
+        transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1);
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .reveal.delay-1 { transition-delay: .08s; }
+      .reveal.delay-2 { transition-delay: .16s; }
+      .reveal.delay-3 { transition-delay: .24s; }
+
+      /* ── FOOTER ── */
+      footer {
+        text-align: center;
+        font-size: 0.58rem;
+        color: var(--mute);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        padding: 2rem 1rem 3rem;
+        position: relative;
+        z-index: 10;
+      }
+      footer a { color: var(--sub); text-decoration: none; transition: color .15s; }
+      footer a:hover { color: var(--blue); }
+
+      /* ── GENERATION TOKEN DEMO ── */
+      .gen-demo {
+        margin-top: 1rem;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        border-radius: 6px;
+        padding: 1.2rem 1.3rem;
+      }
+      .gen-prompt {
+        font-size: 0.72rem;
+        color: var(--sub);
+        background: var(--surface);
+        padding: 0.7rem 0.9rem;
+        border: 1px solid var(--line-soft);
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        min-height: 38px;
+        line-height: 1.65;
+      }
+      .gen-prompt .ptok {
+        background: rgba(88, 166, 255, 0.1);
+        color: var(--blue);
+        padding: 1px 4px;
+        border-radius: 2px;
+        margin: 0 1px;
+      }
+      .gen-prompt .gtok {
+        background: rgba(63, 185, 80, 0.14);
+        color: var(--green);
+        padding: 1px 4px;
+        border-radius: 2px;
+        margin: 0 1px;
+        animation: tokSpawn 0.3s ease-out;
+      }
+      .gen-probs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 0.4rem;
+      }
+      .gen-prob {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        padding: 0.4rem 0.55rem;
+        font-size: 0.62rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .gen-prob .pb {
+        position: absolute;
+        top: 0; left: 0; bottom: 0;
+        background: rgba(88, 166, 255, 0.12);
+        transition: width 0.45s ease;
+      }
+      .gen-prob .pt { position: relative; color: var(--text); }
+      .gen-prob .pv { position: relative; color: var(--mute); font-size: 0.55rem; margin-top: 0.1rem; }
+      .gen-prob.pick { border-color: var(--green); }
+      .gen-prob.pick .pb { background: rgba(63, 185, 80, 0.18); }
+      .gen-prob.pick .pt { color: var(--green); }
+      .gen-ctrl {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin-top: 1rem;
+      }
+
+      /* reduced motion */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+        html { scroll-behavior: auto; }
+        .reveal { opacity: 1; transform: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="tag">// NLP · Field Guide · Vision-Language Fine-Tuning</div>
+      <h1>The <span class="accent">Foundations</span> <span class="muted">—</span> End to End</h1>
+      <p class="sub">
+        Everything you need to know to build a project like the one sitting in this repo —
+        fine-tuning a 7B vision-language model on a consumer GPU. From tokens and
+        transformers up to LoRA, 4-bit quantization, KV caches, and serving with vLLM.
+      </p>
+      <div class="crumb">
+        <a href="../index.html">// home</a>
+        <span class="arrow">›</span>
+        <span>foundations</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- ─────────────────────── TABLE OF CONTENTS ─────────────────────── -->
+      <section class="toc reveal">
+        <div class="toc-title">// the learning path</div>
+        <div class="toc-grid">
+          <a class="toc-item"   href="#intro">      <div class="n">01</div><div class="t">Why this exists</div><div class="d">The problem shape &amp; why a VLM fits.</div></a>
+          <a class="toc-item g" href="#nlp">        <div class="n">02</div><div class="t">NLP fundamentals</div><div class="d">Language models, tokens, sequences.</div></a>
+          <a class="toc-item a" href="#transformer"><div class="n">03</div><div class="t">Transformers</div><div class="d">Attention, layers, inference math.</div></a>
+          <a class="toc-item m" href="#vision">     <div class="n">04</div><div class="t">Vision language</div><div class="d">Patches, visual tokens, fusion.</div></a>
+          <a class="toc-item c" href="#pretraining"><div class="n">05</div><div class="t">Pretrain → Fine-tune</div><div class="d">The two-stage pipeline.</div></a>
+          <a class="toc-item"   href="#data">       <div class="n">06</div><div class="t">Data engineering</div><div class="d">Collection, schemas, splits.</div></a>
+          <a class="toc-item a" href="#peft">       <div class="n">07</div><div class="t">LoRA &amp; PEFT</div><div class="d">Adapters, rank, alpha, dropout.</div></a>
+          <a class="toc-item m" href="#quantization"><div class="n">08</div><div class="t">Quantization</div><div class="d">FP32, BF16, NF4, double quant.</div></a>
+          <a class="toc-item c" href="#memory">     <div class="n">09</div><div class="t">Memory budget</div><div class="d">Weights, activations, optimizer.</div></a>
+          <a class="toc-item g" href="#training">   <div class="n">10</div><div class="t">Training dynamics</div><div class="d">Forward, backward, LR, schedulers.</div></a>
+          <a class="toc-item"   href="#inference">  <div class="n">11</div><div class="t">Inference</div><div class="d">Decoding, KV cache, structure.</div></a>
+          <a class="toc-item a" href="#serving">    <div class="n">12</div><div class="t">Serving with vLLM</div><div class="d">Throughput, PagedAttention, API.</div></a>
+          <a class="toc-item g" href="#evaluation"> <div class="n">13</div><div class="t">Evaluation</div><div class="d">CER, WER, failure modes.</div></a>
+          <a class="toc-item c" href="#stack">      <div class="n">14</div><div class="t">The software stack</div><div class="d">PyTorch, HF, PEFT, bnb, vLLM.</div></a>
+          <a class="toc-item m" href="#pipeline">   <div class="n">15</div><div class="t">The full pipeline</div><div class="d">Seven stages wired together.</div></a>
+          <a class="toc-item r" href="#pitfalls">   <div class="n">16</div><div class="t">Pitfalls &amp; next steps</div><div class="d">What breaks, what to try next.</div></a>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           01 · WHY THIS EXISTS
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="intro"><span class="n">01</span> why this project exists</div>
+      <section class="panel reveal">
+        <h2>The problem, in one picture</h2>
+        <p>
+          Arabic handwriting recognition is hard. Scripts are cursive, letters change
+          shape based on position, diacritics are optional, and there is no standardized
+          script form across writers. Classical OCR engines (Tesseract, EasyOCR) were
+          built for printed, Latin-script pages — they fall apart on handwriting.
+        </p>
+        <p>
+          The modern answer is a <b>Vision-Language Model</b> (VLM) — one model that
+          reads an image and emits text, trained the same way a chat model is. These
+          models already know Arabic script from pretraining; fine-tuning teaches them
+          <em>your specific</em> handwriting style, layout, and output format.
+        </p>
+
+        <h3>What "a project like this" means</h3>
+        <ul>
+          <li><b>Input:</b> an image containing handwriting (a scanned page, a crop, a photo).</li>
+          <li><b>Output:</b> structured text — in this repo's case, a JSON payload like <code>{"transcription":"…"}</code>.</li>
+          <li><b>Method:</b> take a pretrained 7B VLM (Qwen2.5-VL-7B), add a small trainable adapter (LoRA), train on ~1,400 image/label pairs, evaluate on a held-out 20%, serve with vLLM.</li>
+          <li><b>Constraint:</b> all of this has to fit on a single 24 GB consumer GPU (e.g. RTX 3090, A10G).</li>
+        </ul>
+
+        <div class="callout c">
+          <span class="lbl">Who this guide is for</span>
+          You have written some Python, you know what a neural network is in general
+          terms, and you want to understand <em>every layer of the stack</em> — from
+          "what is a token" up to "why does vLLM's PagedAttention make inference
+          10× faster." By the end you should be able to open any script in
+          this repo and read it like prose.
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           02 · NLP FUNDAMENTALS
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="nlp"><span class="n">02</span> nlp fundamentals · tokens &amp; language models</div>
+      <section class="panel reveal">
+        <h2>A language model is a probability function over tokens</h2>
+        <p>
+          Forget the magic for a moment. At its core, a language model is a function
+          that answers one question over and over again:
+        </p>
+        <div class="callout">
+          <b>Given the tokens I've seen so far, what is the probability distribution over
+          the <em>next</em> token?</b>
+          <br/>
+          Formally: <code>P(t<sub>n</sub> | t<sub>1</sub>, t<sub>2</sub>, …, t<sub>n-1</sub>)</code>
+        </div>
+        <p>
+          Everything else — text generation, chat, summarization, transcription — is just
+          calling that function repeatedly and feeding each predicted token back in. This
+          is called <b>autoregressive</b> or <b>causal</b> language modeling, and it's the
+          paradigm behind GPT, Llama, Qwen, Claude, and every model in this project.
+        </p>
+
+        <h3>What is a "token", really?</h3>
+        <p>
+          Models don't see characters or words. They see <b>token IDs</b> — integers into
+          a fixed-size vocabulary (~150k entries for Qwen). A <b>tokenizer</b> is the
+          deterministic function that maps raw bytes/text to that ID sequence and back.
+          Modern tokenizers use <b>Byte-Pair Encoding (BPE)</b>: start with single bytes,
+          then iteratively merge the most common adjacent pairs until you hit the target
+          vocabulary size.
+        </p>
+
+        <!-- Tokenizer interactive ---------------------------------------->
+        <div class="lora-viz">
+          <label style="font-size:0.6rem;letter-spacing:0.12em;color:var(--mute);text-transform:uppercase;">
+            Type anything · watch it become tokens
+          </label>
+          <input id="tok-input" class="tok-input"
+                 value="Transcribe the Arabic text: مرحبا بالعالم"
+                 placeholder="type here…" />
+          <div class="tok-display" id="tok-display"></div>
+          <div class="tok-meta">
+            <div>chars <b id="tok-chars">0</b></div>
+            <div>tokens <b id="tok-count">0</b></div>
+            <div>chars/token <b id="tok-ratio">0</b></div>
+            <div>vocab size <b>≈ 152k</b></div>
+          </div>
+        </div>
+
+        <div class="callout a">
+          <span class="lbl">why it matters</span>
+          Tokens are the unit of <b>everything</b> — price per 1M tokens, the
+          <code>max_seq_length=8192</code> in <code>config.py</code>, the
+          <code>max_new_tokens=512</code> at inference, VRAM usage during
+          training. Arabic typically costs 2–3× more tokens per character than
+          English because of how BPE handles non-Latin scripts; that's why
+          the model's <b>context window</b> matters so much for our use case.
+        </div>
+
+        <h3 class="g">Embeddings: from integers to vectors</h3>
+        <p>
+          A token ID is just an integer. To do math on it, the model looks it up in
+          an <b>embedding table</b> — a giant matrix of shape
+          <code>[vocab_size × hidden_dim]</code>. For Qwen2.5-7B that's roughly
+          <code>152,064 × 3,584</code> floats — about 545 million parameters
+          in the embedding layer <em>alone</em>.
+        </p>
+        <p>
+          Each row is a learned point in a high-dimensional space. Tokens with
+          related meanings cluster together; the geometry of that space encodes
+          everything the model knows about language. Fine-tuning rarely touches
+          these directly — the embeddings are frozen and we adjust only the
+          transformer layers that read from them.
+        </p>
+
+        <div class="pill-grid">
+          <div class="pill">
+            <div class="pill-name">Vocabulary</div>
+            <div class="pill-sub">fixed set of tokens</div>
+            <div class="pill-body">Every token the model can emit or read. For Qwen: <code>152,064</code> entries including Unicode ranges, punctuation, and BPE merges.</div>
+          </div>
+          <div class="pill g">
+            <div class="pill-name">Special tokens</div>
+            <div class="pill-sub">reserved IDs with roles</div>
+            <div class="pill-body">E.g. <code>&lt;|im_start|&gt;</code>, <code>&lt;|im_end|&gt;</code>, <code>&lt;|vision_start|&gt;</code> — they mark roles, image boundaries, and end-of-sequence.</div>
+          </div>
+          <div class="pill a">
+            <div class="pill-name">Context window</div>
+            <div class="pill-sub">max_seq_length</div>
+            <div class="pill-body">The longest sequence the model can attend to. Qwen2.5-VL: <code>8,192</code> tokens. Longer inputs are truncated or chunked.</div>
+          </div>
+          <div class="pill m">
+            <div class="pill-name">Embedding table</div>
+            <div class="pill-sub">id → vector</div>
+            <div class="pill-body">Shape <code>[152k × 3584]</code>. A lookup, not a matrix multiply. Gradient flows through it during full fine-tune; frozen during LoRA.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           03 · TRANSFORMERS
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="transformer"><span class="n">03</span> the transformer · attention is all of it</div>
+      <section class="panel reveal">
+        <h2>Every modern LLM is a stack of identical transformer blocks</h2>
+        <p>
+          The transformer is an architecture published in 2017 ("Attention is All You Need")
+          that replaced recurrent networks. A model like Qwen2.5-7B is just <b>28 identical
+          blocks stacked on top of each other</b>, each doing the same operation: let every
+          token look at every other token, combine what they say, and update its own
+          representation.
+        </p>
+
+        <h3>Self-attention in 40 seconds</h3>
+        <p>
+          Inside each block, every token projects itself into three vectors:
+          a <b style="color:var(--blue)">query</b> ("what am I looking for?"),
+          a <b style="color:var(--green)">key</b>   ("what do I offer?"),
+          and a <b style="color:var(--amber)">value</b> ("if someone attends to me, here's what they get"). Every token compares its query
+          against every other token's key (dot product → softmax → weights),
+          then gathers a weighted sum of their values. The output is
+          a token's new, context-aware representation.
+        </p>
+        <div class="callout">
+          <code>attention(Q,K,V) = softmax( Q·K<sup>T</sup> / √d<sub>k</sub> ) · V</code>
+        </div>
+
+        <!-- Attention interactive ---------------------------------------->
+        <div class="attn-wrap">
+          <div class="attn-caption" style="margin-bottom:0.8rem;">
+            Hover a <b style="color:var(--blue)">query token</b> to see where attention flows.
+            Darker cells = higher weight.
+          </div>
+          <div class="attn-tokens" id="attn-tokens"></div>
+          <div class="attn-caption" id="attn-caption">
+            In <b>causal</b> attention, each token can only see itself and earlier tokens —
+            never the future. That's why generation happens one token at a time.
+          </div>
+        </div>
+
+        <h3 class="g">Inside one transformer block</h3>
+        <ol>
+          <li><b>LayerNorm</b> — normalize the input so the gradients behave.</li>
+          <li><b>Multi-head attention</b> — run self-attention in parallel across multiple "heads" (each head learns a different kind of relationship) and concatenate.</li>
+          <li><b>Residual add</b> — <code>x + attention(norm(x))</code>.</li>
+          <li><b>LayerNorm</b> — normalize again.</li>
+          <li><b>Feed-forward network (FFN)</b> — two linear layers with a nonlinearity in between. This is where most parameters live: <code>gate_proj</code>, <code>up_proj</code>, <code>down_proj</code> in Qwen (SwiGLU variant).</li>
+          <li><b>Residual add</b> — <code>x + ffn(norm(x))</code>.</li>
+        </ol>
+
+        <div class="callout a">
+          <span class="lbl">why residuals matter</span>
+          Every block adds to the signal instead of replacing it. This lets gradients
+          flow backward through the whole 28-block stack without vanishing, and it's
+          why you can fine-tune with a small delta (LoRA) without rewriting the whole
+          model — you're just adding a correction to each residual stream.
+        </div>
+
+        <h3 class="m">The projection layers fine-tuners care about</h3>
+        <div class="pill-grid">
+          <div class="pill"><div class="pill-name">q_proj · k_proj · v_proj</div><div class="pill-sub">attention projections</div><div class="pill-body">Map the residual stream → query / key / value vectors. First choice for LoRA targets — changing them changes how the model routes attention.</div></div>
+          <div class="pill g"><div class="pill-name">o_proj</div><div class="pill-sub">attention output</div><div class="pill-body">Combines the outputs of all attention heads back into the residual stream.</div></div>
+          <div class="pill a"><div class="pill-name">gate_proj · up_proj</div><div class="pill-sub">FFN input side</div><div class="pill-body">Two parallel linear layers (SwiGLU) that expand the hidden dimension by ~4×.</div></div>
+          <div class="pill m"><div class="pill-name">down_proj</div><div class="pill-sub">FFN output side</div><div class="pill-body">Compresses the FFN's wide hidden state back to the residual dimension. Most parameters per layer live here.</div></div>
+        </div>
+
+        <p style="margin-top:1rem;">
+          In this repo's <code>config.py</code>, <code>LORA_TARGET_MODULES</code> is set
+          to all seven: <code>q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj</code>.
+          That's deliberate — covering both attention and the FFN gives the adapter
+          enough leverage to change both <em>what</em> the model attends to and
+          <em>what</em> it does with that information.
+        </p>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           04 · VISION-LANGUAGE
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="vision"><span class="n">04</span> vision-language models · images as tokens</div>
+      <section class="panel reveal">
+        <h2>A VLM is an LLM with one extra move: images also become tokens</h2>
+        <p>
+          The decoder side of a Vision-Language Model is just a regular LLM. The
+          magic is in the <b>vision encoder</b> — a separate network
+          (usually a <b>Vision Transformer</b>, or ViT) that takes an image and
+          produces a sequence of vectors that <em>look like token embeddings</em>
+          to the decoder. The LLM can't tell images and text apart at that point;
+          everything is just vectors in a shared space.
+        </p>
+
+        <h3>From pixels to patches to tokens</h3>
+        <div class="patch-demo">
+          <div class="patch-box">
+            <div class="patch-tag">raw image</div>
+            <div class="patch-grid" id="patch-grid"></div>
+            <div class="patch-tag" style="margin-top:0.7rem;">448 × 448 px</div>
+          </div>
+          <div class="patch-arrow">→</div>
+          <div class="patch-box">
+            <div class="patch-tag">visual tokens</div>
+            <div class="patch-tokens" id="patch-tokens"></div>
+            <div class="patch-tag" style="margin-top:0.7rem;">~256 tokens</div>
+          </div>
+        </div>
+        <ol style="margin-top:1rem;">
+          <li>The image is resized to a size that fits the <b>pixel budget</b> — in this repo: <code>min_pixels=3,136</code>, <code>max_pixels=100,352</code>. Qwen2.5-VL supports dynamic resolution, so bigger images = more tokens.</li>
+          <li>It's cut into non-overlapping <b>patches</b> (typically 14×14 or 28×28 px).</li>
+          <li>Each patch is flattened and run through a linear "patch embedding" layer → a vector of size <code>hidden_dim</code>.</li>
+          <li>Position encodings are added so the model knows where each patch came from in the image.</li>
+          <li>A few transformer blocks process the sequence, then a <b>projection layer</b> (called a "connector" or "merger") maps the visual sequence into the <em>same</em> vector space the LLM uses for its text tokens.</li>
+        </ol>
+
+        <div class="callout g">
+          <span class="lbl">the key insight</span>
+          After projection, the vision sequence is <em>indistinguishable</em> from
+          a text-token embedding sequence to the decoder. So we can <b>interleave</b>
+          them: <code>[text_tokens ··· image_tokens ··· more_text_tokens]</code>.
+          This is what makes "Transcribe this image: [IMG] → output" work as a
+          single forward pass.
+        </div>
+
+        <h3 class="a">Chat templates — how images end up in a prompt</h3>
+        <p>
+          Every chat model has a <b>chat template</b>, a Jinja-style string that turns
+          a list of messages into the exact flat token sequence the model was trained
+          on. For Qwen2.5-VL it looks (conceptually) like this:
+        </p>
+        <div class="callout">
+<pre style="font-size:0.62rem;line-height:1.6;color:var(--sub);white-space:pre-wrap;">&lt;|im_start|&gt;system
+You are a transcription assistant.&lt;|im_end|&gt;
+&lt;|im_start|&gt;user
+&lt;|vision_start|&gt;[IMAGE_TOKENS]&lt;|vision_end|&gt;Transcribe this.&lt;|im_end|&gt;
+&lt;|im_start|&gt;assistant
+{"transcription":"…"}&lt;|im_end|&gt;</pre>
+        </div>
+        <p>
+          The <code>AutoProcessor</code> from 🤗 Transformers handles all of this:
+          it resolves the image, runs the vision encoder, formats the tokens with the
+          special markers, and returns tensors ready for the model. In this repo
+          you'll see it built in <code>train.py</code> and <code>evaluate.py</code>.
+        </p>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           05 · PRETRAIN → FINE-TUNE
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="pretraining"><span class="n">05</span> pretrain → fine-tune · the two-stage playbook</div>
+      <section class="panel reveal">
+        <h2>You don't train a foundation model. Someone else did. You fine-tune.</h2>
+        <p>
+          The cost of pretraining Qwen2.5-7B from scratch is on the order of
+          millions of dollars and months of compute. What makes projects like
+          this one possible is that Alibaba shipped the weights publicly — we
+          get the benefits of that investment, then teach the last 1% with our
+          own tiny dataset.
+        </p>
+
+        <div class="pill-grid">
+          <div class="pill">
+            <div class="pill-name">Stage 1 · Pretraining</div>
+            <div class="pill-sub">done by others · months · $M</div>
+            <div class="pill-body">
+              Train on trillions of tokens of web text, books, code, and (for VLMs)
+              image-caption pairs. Objective: next-token prediction on everything.
+              Result: a model that understands language and vision, but has no
+              opinion about your specific task.
+            </div>
+          </div>
+          <div class="pill g">
+            <div class="pill-name">Stage 1.5 · Instruction tune</div>
+            <div class="pill-sub">done by vendor · weeks</div>
+            <div class="pill-body">
+              A second pretraining phase on (instruction, response) pairs to teach
+              the model to follow instructions in a chat format. The "-Instruct"
+              suffix in <code>Qwen2.5-VL-7B-Instruct</code> signals this step was
+              done.
+            </div>
+          </div>
+          <div class="pill a">
+            <div class="pill-name">Stage 2 · Fine-tune (YOU)</div>
+            <div class="pill-sub">hours · $10–$50 on cloud</div>
+            <div class="pill-body">
+              Train on your own dataset (in this repo: 1,120 Arabic HTR pairs).
+              Objective: next-token prediction on your task format. Only a small
+              adapter changes — the rest of the model is frozen.
+            </div>
+          </div>
+        </div>
+
+        <h3 class="m">Knowledge distillation — where the labels come from</h3>
+        <p>
+          Projects like this one often use a strong model (GPT-5.4-mini in this
+          repo) to generate reference labels for the training set, then
+          fine-tune a smaller/cheaper model to reproduce them. This is
+          <b>knowledge distillation</b> — you're transferring capability from
+          the teacher model into your student model. The student never outperforms
+          the teacher on the exact task, but it's dramatically faster, cheaper,
+          and can be self-hosted.
+        </p>
+
+        <div class="callout a">
+          <span class="lbl">what "teaching" actually changes</span>
+          Fine-tuning doesn't give the model new facts. It <em>biases the next-token
+          distribution</em> toward outputs that look like your training data. If your
+          training set is 1,400 JSON transcriptions, the model learns "when I see a
+          user asking to transcribe an image, answer with JSON." Everything else it
+          already knew (Arabic script, JSON syntax) came from pretraining.
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           06 · DATA ENGINEERING
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="data"><span class="n">06</span> data engineering · what the model actually eats</div>
+      <section class="panel reveal">
+        <h2>Garbage in, garbage out — with extra steps</h2>
+        <p>
+          Fine-tuning quality is bounded by dataset quality. In this repo the
+          pipeline has two data stages: <b>collect</b> (raw images → reference labels)
+          and <b>transform</b> (raw labels → model-ready chat JSONL).
+        </p>
+
+        <h3>The JSONL discipline</h3>
+        <p>
+          Every dataset in this repo is a <b>JSONL file</b>: one JSON object per line,
+          newline-delimited. It's the universal format for ML datasets because it's
+          streamable (no need to load the whole file), diff-able (line-by-line
+          history), and incremental (write as you go, safe against crashes).
+        </p>
+
+        <div class="pill-grid">
+          <div class="pill">
+            <div class="pill-name">data/raw/*.png</div>
+            <div class="pill-sub">stage 0 input</div>
+            <div class="pill-body">The image assets on disk. Each file is one training example once labeled.</div>
+          </div>
+          <div class="pill a">
+            <div class="pill-name">data/gpt_labels.jsonl</div>
+            <div class="pill-sub">after collect</div>
+            <div class="pill-body">One line per labeled image: <code>{"image": "page_0423.jpg", "transcription": "…"}</code>. Labels come from GPT-5.4-mini via the OpenAI API.</div>
+          </div>
+          <div class="pill g">
+            <div class="pill-name">data/train/train.jsonl</div>
+            <div class="pill-sub">after transform</div>
+            <div class="pill-body">Chat-format samples. Image is embedded as a <code>data:image/png;base64,…</code> URL — the entire dataset is self-contained.</div>
+          </div>
+          <div class="pill g">
+            <div class="pill-name">data/eval/eval.jsonl</div>
+            <div class="pill-sub">held out</div>
+            <div class="pill-body">20% of samples, never touched by training. This is the only honest signal of generalization.</div>
+          </div>
+        </div>
+
+        <h3 class="a">Image preprocessing: the pixel budget</h3>
+        <p>
+          Qwen2.5-VL accepts variable resolution, but converting bigger images means
+          more visual tokens, which costs VRAM at training time and latency at
+          inference time. This repo uses a <b>pixel budget</b> to clamp both ends:
+        </p>
+        <ul>
+          <li><code>MIN_PIXELS = 3,136</code> — roughly 56×56 px. Anything smaller is upscaled with LANCZOS (a high-quality resampler) so the vision encoder has enough signal.</li>
+          <li><code>MAX_PIXELS = 100,352</code> — roughly 317×317 px. Anything larger is downsampled. At this budget each image consumes ~256 visual tokens — a known cost.</li>
+        </ul>
+
+        <div class="callout c">
+          <span class="lbl">train/eval split hygiene</span>
+          The split is <b>random with a fixed seed</b> (42) and <b>never re-drawn</b>.
+          If you reshuffle between experiments you're measuring noise, not progress.
+          Eval samples never, ever appear in training — that's the contract that
+          makes eval loss and CER meaningful.
+        </div>
+
+        <h3 class="m">Chat-format schema</h3>
+        <p>
+          Each line in <code>train.jsonl</code> is a conversation with a system
+          instruction, a user turn that includes the image, and an assistant turn that
+          contains the target output. The trainer masks out the system and user tokens
+          from the loss — the model is only penalized for what it <em>emits</em> as the
+          assistant.
+        </p>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           07 · LORA & PEFT
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="peft"><span class="n">07</span> lora &amp; peft · cheap adaptation</div>
+      <section class="panel reveal">
+        <h2>Don't fine-tune 8 billion parameters. Fine-tune a handful.</h2>
+        <p>
+          <b>Parameter-Efficient Fine-Tuning</b> (PEFT) is the umbrella term for
+          techniques that train only a small fraction of the model. The most popular
+          by far is <b>LoRA</b> — Low-Rank Adaptation.
+        </p>
+
+        <h3>The math in one line</h3>
+        <p>
+          For every weight matrix <code>W ∈ ℝ<sup>d_out × d_in</sup></code> you want to
+          adapt, LoRA freezes <code>W</code> and learns two small matrices
+          <code>A ∈ ℝ<sup>r × d_in</sup></code> and <code>B ∈ ℝ<sup>d_out × r</sup></code>,
+          with rank <code>r ≪ min(d_in, d_out)</code>. At inference the effective
+          weight is:
+        </p>
+        <div class="callout">
+          <code>W' = W + (α/r) · B·A</code>
+          <br/>
+          During the forward pass, the model computes both <code>W·x</code> and
+          <code>B·(A·x)</code> and adds them.  Only <code>A</code> and <code>B</code>
+          receive gradients.
+        </div>
+
+        <!-- LoRA rank slider ---------------------------------------------->
+        <div class="lora-viz">
+          <div class="lora-ctrls">
+            <div class="lora-slider">
+              <label>d (hidden dim) <span class="val" id="v-d">3584</span></label>
+              <input id="lora-d" type="range" min="512" max="8192" step="128" value="3584" />
+            </div>
+            <div class="lora-slider">
+              <label>r (LoRA rank) <span class="val" id="v-r">32</span></label>
+              <input id="lora-r" type="range" min="1" max="256" step="1" value="32" />
+            </div>
+          </div>
+
+          <div class="lora-math">
+            <div class="matrix-box W">
+              <div class="dims top">d × d</div>
+              W
+              <div class="lbl" style="color:var(--blue)">frozen base</div>
+            </div>
+            <div class="op">+</div>
+            <div class="matrix-box B" id="box-B">
+              <div class="dims top">d × r</div>
+              B
+              <div class="lbl" style="color:var(--green)">trainable</div>
+            </div>
+            <div class="op">·</div>
+            <div class="matrix-box A" id="box-A">
+              <div class="dims top">r × d</div>
+              A
+              <div class="lbl" style="color:var(--amber)">trainable</div>
+            </div>
+            <div class="op">=</div>
+            <div class="matrix-box W" style="background:rgba(188,140,255,0.06);border-color:rgba(188,140,255,0.4);color:var(--magenta);">
+              <div class="dims top">d × d</div>
+              W′
+              <div class="lbl" style="color:var(--magenta)">effective</div>
+            </div>
+          </div>
+
+          <div class="lora-stats">
+            <div class="lora-stat"><div class="lora-stat-tag">full-tune params</div><div class="lora-stat-val"><span id="full-params">—</span><span class="lora-stat-unit">per layer</span></div></div>
+            <div class="lora-stat g"><div class="lora-stat-tag">lora params</div><div class="lora-stat-val"><span id="lora-params">—</span><span class="lora-stat-unit">per layer</span></div></div>
+            <div class="lora-stat a"><div class="lora-stat-tag">reduction</div><div class="lora-stat-val"><span id="lora-red">—</span><span class="lora-stat-unit">× smaller</span></div></div>
+            <div class="lora-stat m"><div class="lora-stat-tag">% trainable</div><div class="lora-stat-val"><span id="lora-pct">—</span><span class="lora-stat-unit">%</span></div></div>
+          </div>
+        </div>
+
+        <h3 class="a">The four dials you actually touch</h3>
+        <div class="pill-grid">
+          <div class="pill"><div class="pill-name">r (rank)</div><div class="pill-sub">capacity of the adapter</div><div class="pill-body">Higher <code>r</code> → more expressive adapter, more params, more VRAM, slower. Typical: 8, 16, 32, 64. This repo: <code>r=32</code>.</div></div>
+          <div class="pill g"><div class="pill-name">alpha</div><div class="pill-sub">scaling factor</div><div class="pill-body">The update is <code>(α/r)·BA</code>, so alpha controls how strongly the adapter contributes. Convention: <code>α = 2·r</code>. This repo: <code>α=64</code>.</div></div>
+          <div class="pill a"><div class="pill-name">dropout</div><div class="pill-sub">regularization</div><div class="pill-body">Applied on the LoRA path (not the base weights). Prevents the adapter from memorizing the training set. Typical: 0.05–0.1.</div></div>
+          <div class="pill m"><div class="pill-name">target_modules</div><div class="pill-sub">where to attach</div><div class="pill-body">Which layer names get LoRA. Minimum: <code>q_proj</code>, <code>v_proj</code>. For best results: all 7 attention + FFN projections.</div></div>
+        </div>
+
+        <div class="callout g">
+          <span class="lbl">why LoRA works at all</span>
+          Empirically, task-specific fine-tuning lives on a <b>low-dimensional
+          manifold</b> relative to the full parameter space. You don't need to wiggle
+          8 billion parameters — you need to wiggle a few million in the right
+          direction. LoRA's rank-<code>r</code> decomposition restricts updates
+          to exactly that low-dimensional subspace, which also acts as implicit
+          regularization.
+        </div>
+
+        <h3 class="c">Related PEFT techniques</h3>
+        <ul>
+          <li><b>QLoRA</b> — LoRA on top of a 4-bit quantized base. This repo uses it. The base model is loaded in NF4 and frozen; the LoRA matrices are in bf16 and trained.</li>
+          <li><b>DoRA</b> (Weight-Decomposed LoRA) — decomposes weights into magnitude + direction and adapts them separately. ~5-10% better than LoRA on some tasks.</li>
+          <li><b>Prefix tuning / prompt tuning</b> — learn a small number of "virtual" prompt tokens instead of touching weights. Cheaper than LoRA but less expressive.</li>
+          <li><b>IA³</b> — learn a per-channel scaling vector. Even fewer params than LoRA, worse expressivity.</li>
+        </ul>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           08 · QUANTIZATION
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="quantization"><span class="n">08</span> quantization · lower precision, less vram</div>
+      <section class="panel reveal">
+        <h2>An 8B model in FP32 needs 32 GB of VRAM. In NF4, it needs 4 GB.</h2>
+        <p>
+          A model's weights are just floating-point numbers. The question is: how
+          many bits per number? Fewer bits = less VRAM, less bandwidth, faster
+          compute — at the cost of precision. Modern fine-tuning lives on a careful
+          balance between these extremes.
+        </p>
+
+        <!-- precision selector --------------------------------------------->
+        <div class="quant-ctrls">
+          <button class="quant-btn active" data-precision="fp32">FP32</button>
+          <button class="quant-btn" data-precision="fp16">FP16</button>
+          <button class="quant-btn" data-precision="bf16">BF16</button>
+          <button class="quant-btn" data-precision="int8">INT8</button>
+          <button class="quant-btn" data-precision="nf4">NF4</button>
+        </div>
+        <div class="bit-strip" id="bit-strip"></div>
+        <div class="quant-info">
+          <div class="quant-info-card"><div class="tag">bits / value</div><div class="v" id="q-bits">32</div></div>
+          <div class="quant-info-card"><div class="tag">sign bits</div><div class="v" id="q-sign">1</div></div>
+          <div class="quant-info-card"><div class="tag">exponent bits</div><div class="v" id="q-exp">8</div></div>
+          <div class="quant-info-card"><div class="tag">mantissa bits</div><div class="v" id="q-mant">23</div></div>
+          <div class="quant-info-card"><div class="tag">8B model size</div><div class="v" id="q-size">32 GB</div></div>
+          <div class="quant-info-card"><div class="tag">use case</div><div class="v" id="q-use">legacy, research</div></div>
+        </div>
+
+        <h3 class="c">The five precisions that matter</h3>
+        <div class="pill-grid">
+          <div class="pill"><div class="pill-name">FP32</div><div class="pill-sub">standard float</div><div class="pill-body">1 sign + 8 exp + 23 mantissa bits. Baseline for correctness but 2–8× more memory than anyone wants.</div></div>
+          <div class="pill c"><div class="pill-name">FP16</div><div class="pill-sub">half precision</div><div class="pill-body">1 + 5 + 10 bits. Half the memory, but the exponent range is small — gradients can underflow. Needs loss scaling.</div></div>
+          <div class="pill g"><div class="pill-name">BF16</div><div class="pill-sub">"brain float"</div><div class="pill-body">1 + 8 + 7 bits. Same exponent range as FP32, worse mantissa. Robust for training, first choice on Ampere/Ada/Hopper GPUs.</div></div>
+          <div class="pill a"><div class="pill-name">INT8</div><div class="pill-sub">8-bit integer</div><div class="pill-body">8 bits per weight with a per-channel scale factor. Lossy but usually acceptable for inference.</div></div>
+          <div class="pill m"><div class="pill-name">NF4</div><div class="pill-sub">4-bit NormalFloat</div><div class="pill-body">4 bits per weight, quantization levels chosen to match a normal distribution (which pretrained weights follow). The star of QLoRA.</div></div>
+        </div>
+
+        <div class="callout m">
+          <span class="lbl">double quantization</span>
+          To compress NF4 further, the <em>quantization constants themselves</em>
+          (the per-block scale factors) are quantized a second time. Saves another
+          ~0.4 bits per parameter. That's what <code>bnb_4bit_use_double_quant=True</code>
+          does in this repo's config.
+        </div>
+
+        <h3 class="a">The mixed-precision recipe you'll see in this repo</h3>
+        <ul>
+          <li><b>Base model weights</b> — stored in <code>NF4</code> (4 bits), frozen.</li>
+          <li><b>Compute dtype</b> — <code>bfloat16</code>. When doing a matmul, the 4-bit weight is dequantized to bf16, the math happens in bf16, the result is bf16.</li>
+          <li><b>LoRA adapter weights</b> — <code>bfloat16</code> (in FP trainable).</li>
+          <li><b>Gradients</b> — accumulated in <code>float32</code> for numerical stability.</li>
+          <li><b>Optimizer state</b> — first/second moments (AdamW) in <code>float32</code>.</li>
+        </ul>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           09 · MEMORY BUDGET
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="memory"><span class="n">09</span> memory budget · where the 24 gb goes</div>
+      <section class="panel reveal">
+        <h2>Training a 7B model on 24 GB is a memory puzzle</h2>
+        <p>
+          At a rough estimate, naive full fine-tuning of a 7B model in FP32 needs
+          ~112 GB of VRAM — 28 GB for weights, 28 for gradients, 56 for the AdamW
+          optimizer state. We don't have 112 GB. We have 24.
+        </p>
+        <p>
+          Every trick in the box compresses one of those four bars: weights,
+          gradients, optimizer state, activations. Here's how the numbers look
+          for this repo's setup:
+        </p>
+
+        <div class="mem-bars">
+          <div class="mem-row">
+            <div class="mem-lbl"><b>Base weights</b><br/><span style="color:var(--mute);font-size:0.92em;">NF4 quantized</span></div>
+            <div class="mem-track"><div class="mem-fill" style="width: 16%"></div></div>
+            <div class="mem-val">~4 GB</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-lbl"><b>LoRA adapter</b><br/><span style="color:var(--mute);font-size:0.92em;">bf16, r=32</span></div>
+            <div class="mem-track"><div class="mem-fill w2" style="width: 3%"></div></div>
+            <div class="mem-val">~320 MB</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-lbl"><b>Gradients</b><br/><span style="color:var(--mute);font-size:0.92em;">only for LoRA</span></div>
+            <div class="mem-track"><div class="mem-fill w2" style="width: 3%"></div></div>
+            <div class="mem-val">~320 MB</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-lbl"><b>Optimizer (Adam)</b><br/><span style="color:var(--mute);font-size:0.92em;">fp32 · 2× params</span></div>
+            <div class="mem-track"><div class="mem-fill w3" style="width: 5%"></div></div>
+            <div class="mem-val">~1.3 GB</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-lbl"><b>Activations</b><br/><span style="color:var(--mute);font-size:0.92em;">grad-checkpointed</span></div>
+            <div class="mem-track"><div class="mem-fill w4" style="width: 38%"></div></div>
+            <div class="mem-val">~9 GB</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-lbl"><b>Misc / CUDA</b><br/><span style="color:var(--mute);font-size:0.92em;">kernels, buffers</span></div>
+            <div class="mem-track"><div class="mem-fill w4" style="width: 12%"></div></div>
+            <div class="mem-val">~3 GB</div>
+          </div>
+          <div class="mem-row">
+            <div class="mem-lbl"><b>Headroom</b><br/><span style="color:var(--mute);font-size:0.92em;">safety margin</span></div>
+            <div class="mem-track"><div class="mem-fill" style="width: 23%;background:linear-gradient(90deg,var(--line-soft),var(--mute));"></div></div>
+            <div class="mem-val">~6 GB</div>
+          </div>
+        </div>
+
+        <h3 class="m">Gradient checkpointing — trading 25% speed for 50% memory</h3>
+        <p>
+          During a forward pass, the model saves every intermediate activation so it
+          can use them in backprop. For a 28-layer 7B model, activations are the
+          single largest memory consumer. <b>Gradient checkpointing</b> tells the
+          trainer: "forget most of those. When you need them for backprop, recompute
+          them."  You pay with an extra forward pass per step (~25% slowdown) and
+          save ~50% of activation memory. This is the difference between OOM and
+          working on a 24 GB card.
+        </p>
+
+        <div class="callout a">
+          <span class="lbl">why grad-checkpointing fights with use_cache</span>
+          At inference, <code>use_cache=True</code> stores the KV cache, which is
+          another form of cached activations. During training, gradient
+          checkpointing sets <code>use_cache=False</code> automatically — trying to
+          cache things it's going to throw away would be silly. You have to set
+          <code>model.config.use_cache = True</code> explicitly before running
+          eval or inference.
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           10 · TRAINING DYNAMICS
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="training"><span class="n">10</span> training dynamics · the inner loop</div>
+      <section class="panel reveal">
+        <h2>One training step is five substeps. All of fine-tuning is repeating them.</h2>
+
+        <!-- training loop animation -->
+        <div class="loop-viz">
+          <div class="loop-stages">
+            <div class="loop-stage" id="ls-1">
+              <div class="n">1</div>
+              <div class="t">Forward</div>
+              <div class="d">Model sees input → produces logits</div>
+            </div>
+            <div class="loop-stage" id="ls-2">
+              <div class="n">2</div>
+              <div class="t">Loss</div>
+              <div class="d">Compare logits vs target tokens → scalar</div>
+            </div>
+            <div class="loop-stage" id="ls-3">
+              <div class="n">3</div>
+              <div class="t">Backward</div>
+              <div class="d">Chain rule → gradient per parameter</div>
+            </div>
+            <div class="loop-stage" id="ls-4">
+              <div class="n">4</div>
+              <div class="t">Accumulate</div>
+              <div class="d">Sum gradients across micro-batches</div>
+            </div>
+            <div class="loop-stage" id="ls-5">
+              <div class="n">5</div>
+              <div class="t">Step</div>
+              <div class="d">AdamW updates weights · one "step" done</div>
+            </div>
+          </div>
+          <div class="loop-ctrl">
+            <button class="loop-btn" id="loop-play">▸ play loop</button>
+            <button class="loop-btn" id="loop-stop">◼ stop</button>
+          </div>
+          <div class="loop-counter">steps completed <b id="loop-steps">0</b></div>
+        </div>
+
+        <h3 class="g">Cross-entropy loss in plain words</h3>
+        <p>
+          After the forward pass, for every target token position, the model produces
+          a vector of logits over the whole vocabulary. We apply softmax to get a
+          probability distribution, then compute:
+        </p>
+        <div class="callout"><code>loss = −log( P(correct_token) )</code> (averaged over all target positions)</div>
+        <p>
+          If the model assigned probability 1.0 to the correct next token, loss is 0.
+          If it assigned probability 0.001, loss is ~6.9. This scalar is what
+          backpropagation chews on.
+        </p>
+
+        <h3 class="a">The AdamW optimizer</h3>
+        <p>
+          Plain SGD says "step in the opposite direction of the gradient." AdamW
+          remembers a running average of past gradients (first moment) and their
+          squared magnitudes (second moment), then takes a step that's scaled
+          per-parameter by how confident we are. Practically: training is more
+          stable, converges faster, is less sensitive to learning rate. Every fine-tune
+          in this repo uses AdamW.
+        </p>
+
+        <h3 class="m">The learning rate & its schedule</h3>
+        <p>
+          <code>lr=2e-5</code> in this repo — meaning at each step, AdamW's
+          preconditioned gradient is multiplied by <code>0.00002</code> before being
+          applied. Too high and you lurch past the optimum; too low and you never get
+          there. The scheduler adjusts this over time:
+        </p>
+        <ul>
+          <li><b>Warmup</b> (<code>warmup_ratio=0.1</code>) — first 10% of steps, LR ramps linearly from 0 up to <code>2e-5</code>. Prevents early instability when gradients are huge.</li>
+          <li><b>Cosine decay</b> — after warmup, LR follows a half-cosine curve down toward 0. Smoother than linear, empirically works best.</li>
+        </ul>
+
+        <h3 class="c">Effective batch, revisited</h3>
+        <p>
+          The <a href="00-training_terms.html">training glossary</a> covers this in
+          depth, but briefly: one <b>step</b> is one call to <code>optimizer.step()</code>.
+          You can split that step across multiple <b>micro-batches</b> (<code>batch_size</code>
+          samples at a time) and accumulate their gradients (<code>grad_accum_steps</code>
+          times) before applying. Your effective batch is <code>batch_size × grad_accum</code>.
+          This repo: <code>1 × 2 = 2</code>.
+        </p>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           11 · INFERENCE
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="inference"><span class="n">11</span> inference · generating one token at a time</div>
+      <section class="panel reveal">
+        <h2>Training is a single pass. Inference is hundreds of passes.</h2>
+        <p>
+          At inference, you feed the prompt forward <em>once</em> to get the next
+          token, append it, feed the whole thing forward <em>again</em>, get the next
+          token, append, repeat. That's <b>autoregressive decoding</b>. Every token
+          is one full model evaluation, so long outputs are expensive.
+        </p>
+
+        <!-- generation demo -->
+        <div class="gen-demo">
+          <div class="gen-prompt" id="gen-prompt">
+            <span class="ptok">Transcribe</span>
+            <span class="ptok">this</span>
+            <span class="ptok">image:</span>
+            <span class="ptok">[IMG]</span>
+            <span class="ptok">→</span>
+          </div>
+          <div class="gen-probs" id="gen-probs"></div>
+          <div class="gen-ctrl">
+            <button class="loop-btn" id="gen-step">▸ generate next token</button>
+            <button class="loop-btn" id="gen-reset">↺ reset</button>
+          </div>
+        </div>
+
+        <h3 class="c">Decoding strategies — how we pick the next token</h3>
+        <div class="pill-grid">
+          <div class="pill"><div class="pill-name">Greedy</div><div class="pill-sub">argmax</div><div class="pill-body">Pick the single most likely token every time. Deterministic. This repo's choice at eval: <code>do_sample=False</code>.</div></div>
+          <div class="pill g"><div class="pill-name">Temperature sampling</div><div class="pill-sub">soft random</div><div class="pill-body">Divide logits by <code>T</code>, softmax, sample. <code>T=0.1</code> is near-greedy; <code>T=1.0</code> is the raw distribution.</div></div>
+          <div class="pill a"><div class="pill-name">Top-k / top-p</div><div class="pill-sub">tail-cutting</div><div class="pill-body">Only consider the top-<code>k</code> most likely tokens, or the smallest set whose cumulative probability exceeds <code>p</code>. Kills unlikely tails.</div></div>
+          <div class="pill m"><div class="pill-name">Beam search</div><div class="pill-sub">best of N paths</div><div class="pill-body">Explore N most likely sequences in parallel, pick the best overall. Uncommon in modern LLMs — slow, can over-optimize for length.</div></div>
+        </div>
+
+        <h3 class="m">The KV cache — the reason generation isn't O(N²)</h3>
+        <p>
+          Here's the trick. When generating token <code>N+1</code>, the attention
+          computation for all earlier tokens <em>has not changed</em> — the queries,
+          keys, and values for positions 1..N are identical to what they were one
+          step ago. So we cache them. Only the new token does any real work.
+        </p>
+
+        <div class="kv-compare">
+          <div class="kv-box">
+            <div class="kv-title">Without KV cache</div>
+            <div class="kv-sub">O(N²) · recomputes everything</div>
+            <div class="kv-grid" id="kv-nocache"></div>
+            <div class="kv-count">compute operations: <b id="kv-nocache-count">0</b></div>
+          </div>
+          <div class="kv-box cached">
+            <div class="kv-title">With KV cache</div>
+            <div class="kv-sub">O(N) · reuses prior keys/values</div>
+            <div class="kv-grid" id="kv-cache"></div>
+            <div class="kv-count">compute operations: <b id="kv-cache-count">0</b></div>
+          </div>
+        </div>
+
+        <div class="callout g">
+          <span class="lbl">the measurable payoff</span>
+          In this repo's Run 02 evaluation, enabling <code>use_cache=True</code> at
+          eval time gave an 11× speedup versus Run 01's default — from ~4 s/sample to
+          ~0.4 s/sample for the generation portion. It's the single biggest
+          inference-side optimization you can make with one line of code.
+        </div>
+
+        <h3 class="a">Structured output — keeping JSON valid</h3>
+        <p>
+          The model is probabilistic, so "always respond with valid JSON" is a
+          suggestion, not a guarantee. This repo uses three cheap tricks to get to
+          100% valid-JSON rate:
+        </p>
+        <ul>
+          <li><b>Prompt engineering</b> — the system message says "respond with <code>{"transcription":"…"}</code>" and includes examples.</li>
+          <li><b>JSON-prefix forcing</b> — append <code>{"transcription":"</code> to the prompt before generation so the model only has to complete the value and close the braces.</li>
+          <li><b>stop_strings</b> — halt <code>generate()</code> the moment <code>"}</code> appears in the output. Stops trailing hallucinations cold and caps wall-clock.</li>
+        </ul>
+        <p>
+          For stricter guarantees, libraries like <b>outlines</b>, <b>jsonformer</b>,
+          <b>guidance</b>, and <b>xgrammar</b> constrain the decoder's token
+          distribution to only permit tokens that make the output match a grammar
+          (JSON schema, regex, context-free grammar). Slight inference overhead,
+          100% valid output.
+        </p>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           12 · SERVING
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="serving"><span class="n">12</span> serving · from notebook to api</div>
+      <section class="panel reveal">
+        <h2>Training gives you a folder. Serving turns it into a URL.</h2>
+        <p>
+          After training, <code>models/lora_adapter/</code> contains ~380 MB of LoRA
+          weights and a config file. That's a checkpoint, not an API. To serve it
+          you need an inference server that:
+        </p>
+        <ul>
+          <li>loads the base model + adapter on startup,</li>
+          <li>accepts HTTP requests (ideally in the OpenAI API shape, so any client works),</li>
+          <li>batches incoming requests efficiently across the GPU,</li>
+          <li>manages the KV cache without running out of memory.</li>
+        </ul>
+
+        <h3 class="c">Why vLLM instead of plain transformers.generate()</h3>
+        <div class="pill-grid">
+          <div class="pill"><div class="pill-name">PagedAttention</div><div class="pill-sub">vLLM's core invention</div><div class="pill-body">KV cache is stored in fixed-size "pages" like OS virtual memory, not contiguous blocks. ~2–4× throughput by eliminating fragmentation.</div></div>
+          <div class="pill g"><div class="pill-name">Continuous batching</div><div class="pill-sub">dynamic scheduling</div><div class="pill-body">New requests can join an in-flight batch between decoding steps. No waiting for the slowest request to finish.</div></div>
+          <div class="pill a"><div class="pill-name">LoRA hot-swap</div><div class="pill-sub">--enable-lora</div><div class="pill-body">Multiple LoRA adapters loaded at once; the client picks one per request via the <code>model</code> field. Zero restart cost.</div></div>
+          <div class="pill m"><div class="pill-name">OpenAI API-compatible</div><div class="pill-sub">drop-in</div><div class="pill-body">Speaks <code>/v1/chat/completions</code> out of the box. Any OpenAI SDK, LangChain client, or curl command works unchanged.</div></div>
+        </div>
+
+        <h3 class="a">Launch flags you must get right</h3>
+        <div class="callout">
+<pre style="font-size:0.62rem;line-height:1.7;color:var(--sub);white-space:pre-wrap;">python3 -m vllm.entrypoints.openai.api_server \
+  --model Qwen/Qwen2.5-VL-7B-Instruct \
+  --trust-remote-code \
+  --enable-lora \
+  --max-lora-rank 32 \
+  --lora-modules arabic-ocr=models/lora_adapter \
+  --served-model-name arabic-ocr-v1 \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.9 \
+  --dtype auto \
+  --host 0.0.0.0 --port 8000</pre>
+        </div>
+        <ul>
+          <li><code>--max-lora-rank 32</code> — <b>must match the rank you trained with</b>. vLLM defaults to 16, which silently rejects a rank-32 adapter.</li>
+          <li><code>--gpu-memory-utilization 0.9</code> — reserve 90% of VRAM. Leaves ~2 GB for framework overhead on 24 GB.</li>
+          <li><code>--max-model-len 8192</code> — matches <code>MAX_SEQ_LENGTH</code> in <code>config.py</code>. Larger → more KV cache pressure.</li>
+          <li><code>--served-model-name arabic-ocr-v1</code> — what clients see in <code>/v1/models</code>. Nice for multi-adapter setups.</li>
+        </ul>
+
+        <h3 class="g">The three endpoints you test first</h3>
+        <ol>
+          <li><code>GET /health</code> — returns <code>200 OK</code> when the server is ready. No GPU work.</li>
+          <li><code>GET /v1/models</code> — lists loaded models. Should include <code>arabic-ocr-v1</code>.</li>
+          <li><code>POST /v1/chat/completions</code> — the real thing. Same payload shape as OpenAI's API, image is sent as <code>data:image/png;base64,…</code>.</li>
+        </ol>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           13 · EVALUATION
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="evaluation"><span class="n">13</span> evaluation · measuring what users care about</div>
+      <section class="panel reveal">
+        <h2>Eval loss proves it's learning. Task metrics prove it's useful.</h2>
+        <p>
+          There are two kinds of "evaluation" in this repo and you have to keep them
+          separate.
+        </p>
+        <ul>
+          <li><b>Eval loss</b> — <code>cross-entropy</code> on the held-out JSONL, reported once per epoch during training. Cheap, runs in the training loop. Tells you "is the model still generalizing?" Nothing more.</li>
+          <li><b>Task evaluation</b> — actually generating transcriptions, parsing them, and computing CER/WER against references. Slow (seconds per sample × 280 samples), happens after training. Tells you "is the model actually good at the job?"</li>
+        </ul>
+
+        <h3 class="g">CER and WER from first principles</h3>
+        <p>
+          Both measure edit distance between the prediction and the reference:
+        </p>
+        <div class="callout">
+          <code>(Substitutions + Deletions + Insertions) / N<sub>reference</sub></code>
+        </div>
+        <ul>
+          <li><b>CER</b> — <em>character</em> error rate. Counts edits in characters.</li>
+          <li><b>WER</b> — <em>word</em> error rate. Counts edits in words.</li>
+          <li><b>Lower is better, 0 = perfect.</b></li>
+          <li><b>Can exceed 1.0</b> — if the hypothesis is much longer than the reference, insertions outnumber reference tokens. This is <em>the</em> classic gotcha.</li>
+        </ul>
+
+        <div class="callout a">
+          <span class="lbl">the failure mode this repo found</span>
+          Run 02 reported mean CER <b>1.28</b>, which sounds like catastrophe but
+          wasn't. Stratified by reference length: long refs (>60 chars) sat at a
+          sane <b>0.83</b>. The headline was dominated by 8 short references (<10 chars)
+          that averaged <b>~9.0 CER</b> because the model emitted its pretraining
+          prior — a 17-word Arabic sentence — instead of a short answer. Same model,
+          three completely different quality regimes. <b>Always stratify.</b>
+        </div>
+
+        <h3 class="m">Other metrics worth computing</h3>
+        <div class="pill-grid">
+          <div class="pill"><div class="pill-name">Exact match</div><div class="pill-sub">strictest</div><div class="pill-body">1 if <code>prediction == reference</code> char-for-char. Useful when there's one correct answer.</div></div>
+          <div class="pill g"><div class="pill-name">Valid JSON rate</div><div class="pill-sub">structural</div><div class="pill-body">% of outputs that parse as valid JSON with the expected schema. Sanity check before CER even runs.</div></div>
+          <div class="pill a"><div class="pill-name">Latency / sample</div><div class="pill-sub">operational</div><div class="pill-body">Wall-clock per sample. Distinguishes "fast but wrong" from "slow and right." Include in all reports.</div></div>
+          <div class="pill m"><div class="pill-name">Length histograms</div><div class="pill-sub">diagnostic</div><div class="pill-body">Ref-length vs. prediction-length distribution. Spikes reveal length bias and LM-prior fallback.</div></div>
+        </div>
+
+        <h3 class="c">Best checkpoint vs final checkpoint</h3>
+        <p>
+          Always evaluate <em>at least two</em> checkpoints: the one with lowest
+          eval loss (typically mid-training) and the final one. Compare their task
+          metrics. The final checkpoint is often <b>worse</b> than the mid-training
+          one if overfit started — that's Run 02's story exactly.
+        </p>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           14 · SOFTWARE STACK
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="stack"><span class="n">14</span> the software stack · what gets installed</div>
+      <section class="panel reveal">
+        <h2>A ~15-library stack that fits in <code>requirements.txt</code></h2>
+        <p>
+          Everything you need to do this project is open source and pip-installable.
+          Here's the stack, bottom up:
+        </p>
+
+        <div class="stack">
+          <div class="stack-layer">
+            <div class="stack-name">PyTorch</div>
+            <div class="stack-desc">The deep learning framework underneath everything. Tensor ops, autograd, CUDA kernels. This project uses PyTorch 2.x with <code>torch.compile</code> optional.</div>
+          </div>
+          <div class="stack-layer l2">
+            <div class="stack-name">🤗 transformers</div>
+            <div class="stack-desc">HuggingFace's model zoo + API. <code>AutoModelForCausalLM</code>, <code>AutoProcessor</code>, chat templates, <code>Trainer</code>, <code>TrainingArguments</code>. Loads Qwen2.5-VL-7B with one line.</div>
+          </div>
+          <div class="stack-layer l3">
+            <div class="stack-name">🤗 peft</div>
+            <div class="stack-desc">Adapter implementations — LoRA, QLoRA, DoRA, Prefix, IA³. Wraps a HF model: <code>get_peft_model(model, LoraConfig(...))</code>. Handles saving/loading only the adapter weights.</div>
+          </div>
+          <div class="stack-layer l4">
+            <div class="stack-name">bitsandbytes</div>
+            <div class="stack-desc">4-bit and 8-bit quantization kernels. <code>BitsAndBytesConfig</code> → the loaded model uses NF4 weights with bf16 compute. Works with CUDA; on macOS/Windows needs a backport or Linux.</div>
+          </div>
+          <div class="stack-layer l5">
+            <div class="stack-name">🤗 accelerate</div>
+            <div class="stack-desc">Device placement, mixed precision, gradient accumulation, distributed training. Invisible when you use <code>Trainer</code>; it's doing the heavy lifting behind the scenes.</div>
+          </div>
+          <div class="stack-layer l6">
+            <div class="stack-name">datasets</div>
+            <div class="stack-desc">Streaming dataset loaders, Arrow-backed for memory efficiency. Can replace the hand-rolled <code>ArabicHTRDataset</code> in <code>train.py</code> for larger datasets.</div>
+          </div>
+          <div class="stack-layer">
+            <div class="stack-name">Pillow (PIL)</div>
+            <div class="stack-desc">Image I/O and manipulation. Used in <code>transform_data.py</code> for LANCZOS resampling and bounds-checking images before embedding as base64.</div>
+          </div>
+          <div class="stack-layer l2">
+            <div class="stack-name">jiwer</div>
+            <div class="stack-desc">The reference CER/WER implementation. Handles Unicode, tokenization rules, and edit-distance computation correctly. Way better than rolling your own.</div>
+          </div>
+          <div class="stack-layer l3">
+            <div class="stack-name">vLLM</div>
+            <div class="stack-desc">Production inference server with PagedAttention and continuous batching. One CLI invocation turns <code>models/lora_adapter/</code> into an OpenAI-compatible HTTP API.</div>
+          </div>
+          <div class="stack-layer l4">
+            <div class="stack-name">OpenAI SDK</div>
+            <div class="stack-desc">Used in <code>collect_data.py</code> to talk to GPT-5.4-mini for generating reference labels. Also works as a client against the vLLM server.</div>
+          </div>
+          <div class="stack-layer l5">
+            <div class="stack-name">python-dotenv</div>
+            <div class="stack-desc">Loads <code>.env</code> files so API keys don't end up in source control. Boring but non-negotiable.</div>
+          </div>
+          <div class="stack-layer l6">
+            <div class="stack-name">tqdm</div>
+            <div class="stack-desc">Progress bars. You will watch them for hours. Worth installing correctly.</div>
+          </div>
+        </div>
+
+        <h3 class="c">The underlying hardware contract</h3>
+        <ul>
+          <li><b>NVIDIA GPU with compute capability ≥ 8.0</b> (Ampere or newer) for bf16. A10G, 3090, 4090, A100, H100 all work.</li>
+          <li><b>24 GB VRAM minimum</b> for 7B + LoRA + bf16 activations. A 16 GB card works if you cap <code>max_pixels</code> aggressively.</li>
+          <li><b>CUDA 12.x</b> and a matching NVIDIA driver.</li>
+          <li><b>Linux</b> is easiest. Windows works via WSL2; macOS is mostly for development and doesn't run bitsandbytes natively.</li>
+        </ul>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           15 · PIPELINE
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="pipeline"><span class="n">15</span> the full pipeline · seven stages wired</div>
+      <section class="panel reveal">
+        <h2>All the concepts, assembled</h2>
+        <p>
+          Here is the end-to-end flow this repo executes. Each stage is one script
+          you can run independently — click into any to see the detailed data-flow
+          diagram.
+        </p>
+
+        <div class="flow-map">
+          <div class="flow-lanes">
+            <div class="flow-pkt"></div>
+            <div class="flow-pkt p2"></div>
+            <div class="flow-pkt p3"></div>
+            <div class="flow-pkt p4"></div>
+            <div class="flow-pkt p5"></div>
+
+            <a class="flow-node" href="01-collect_data_flow.html">
+              <div class="fn">01</div>
+              <div class="ft">Collect</div>
+              <div class="fd">raw images → GPT labels via OpenAI API</div>
+            </a>
+            <a class="flow-node" href="02-transform_data_flow.html">
+              <div class="fn">02</div>
+              <div class="ft">Transform</div>
+              <div class="fd">JSONL → chat-format · base64 images · split</div>
+            </a>
+            <a class="flow-node" href="03-config_flow.html">
+              <div class="fn">03</div>
+              <div class="ft">Config</div>
+              <div class="fd">all hyperparams in one <code>config.py</code></div>
+            </a>
+            <a class="flow-node" href="04-train_flow.html">
+              <div class="fn">04</div>
+              <div class="ft">Train</div>
+              <div class="fd">QLoRA fine-tune · 3 epochs · ~44 min</div>
+            </a>
+            <a class="flow-node" href="05-evaluate_flow.html">
+              <div class="fn">05</div>
+              <div class="ft">Evaluate</div>
+              <div class="fd">CER/WER/exact/valid-JSON on 280 held-out</div>
+            </a>
+            <a class="flow-node" href="06-vllm_launch_flow.html">
+              <div class="fn">06</div>
+              <div class="ft">Serve</div>
+              <div class="fd">vLLM · OpenAI-API · LoRA hot-swap</div>
+            </a>
+            <a class="flow-node" href="07-vllm_test_flow.html">
+              <div class="fn">07</div>
+              <div class="ft">Test</div>
+              <div class="fd">curl the three endpoints · verify</div>
+            </a>
+          </div>
+        </div>
+
+        <h3 class="a">What flows through the pipeline</h3>
+        <div class="pill-grid">
+          <div class="pill"><div class="pill-name">image bytes</div><div class="pill-sub">01 → 02</div><div class="pill-body">PNG files on disk, base64-encoded into each JSONL line.</div></div>
+          <div class="pill g"><div class="pill-name">transcriptions</div><div class="pill-sub">01 → 02 → 04</div><div class="pill-body">GPT-generated reference strings, wrapped in chat messages, consumed by the trainer as target tokens.</div></div>
+          <div class="pill a"><div class="pill-name">lora adapter</div><div class="pill-sub">04 → 05, 06</div><div class="pill-body">~380 MB of weight deltas. Both evaluation and serving merge the adapter with the base model at load.</div></div>
+          <div class="pill m"><div class="pill-name">eval results</div><div class="pill-sub">05 → report</div><div class="pill-body">Per-sample predictions, CER/WER/valid-JSON rates, stratified histograms. Drives the next run's design.</div></div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════════════
+           16 · PITFALLS
+           ═══════════════════════════════════════════════════════════════════ -->
+      <div class="section-label" id="pitfalls"><span class="n">16</span> pitfalls &amp; next steps</div>
+      <section class="panel reveal">
+        <h2>The thirteen things that will bite you</h2>
+
+        <div class="pill-grid">
+          <div class="pill r"><div class="pill-name">OOM on first step</div><div class="pill-sub">CUDA out of memory</div><div class="pill-body">Lower <code>max_pixels</code>, enable gradient checkpointing, drop <code>batch_size</code> to 1, raise <code>grad_accum</code>.</div></div>
+          <div class="pill r"><div class="pill-name">Rank mismatch at vLLM launch</div><div class="pill-sub">ValueError</div><div class="pill-body">Default <code>--max-lora-rank=16</code> rejects a rank-32 adapter. Set to the rank you trained with.</div></div>
+          <div class="pill r"><div class="pill-name">use_cache still off at eval</div><div class="pill-sub">slow eval</div><div class="pill-body">Grad checkpointing disabled it. Set <code>model.config.use_cache = True</code> before calling <code>generate</code>.</div></div>
+          <div class="pill a"><div class="pill-name">LM prior hallucinations</div><div class="pill-sub">canned pretraining phrase</div><div class="pill-body">When vision signal is weak, the decoder emits a generic sentence. Balance short/long refs; use <code>stop_strings</code>.</div></div>
+          <div class="pill a"><div class="pill-name">CER &gt; 1.0 headlines</div><div class="pill-sub">stratification needed</div><div class="pill-body">A few short-ref failures can dominate the mean. Report stratified CER and/or clip at 1.0.</div></div>
+          <div class="pill a"><div class="pill-name">Final checkpoint ≠ best</div><div class="pill-sub">overfit</div><div class="pill-body">Always evaluate both the min-eval-loss checkpoint and the final one. Ship whichever wins on task metrics.</div></div>
+          <div class="pill"><div class="pill-name">Tokenizer mismatch</div><div class="pill-sub">silent disaster</div><div class="pill-body">If inference uses a different tokenizer than training, outputs are gibberish. Always load the processor/tokenizer from the same base model ID.</div></div>
+          <div class="pill"><div class="pill-name">Images too big at load</div><div class="pill-sub">1 image ≈ 10k tokens</div><div class="pill-body">Without <code>max_pixels</code>, a 4K image blows past the 8192 context window. Pin <code>max_pixels</code> explicitly.</div></div>
+          <div class="pill m"><div class="pill-name">Non-deterministic eval</div><div class="pill-sub">hard to compare runs</div><div class="pill-body">Set seed, use <code>do_sample=False</code>, match processor version. Tiny drift is normal; big swings mean a bug.</div></div>
+          <div class="pill m"><div class="pill-name">Dataset leakage</div><div class="pill-sub">eval contaminated</div><div class="pill-body">If the same image landed in train and eval (duplicate filenames, fuzzy matches), eval numbers lie. Hash images, check for dupes.</div></div>
+          <div class="pill"><div class="pill-name">Forgot to save processor</div><div class="pill-sub">reload fails</div><div class="pill-body">LoRA checkpoints save adapter weights only. Save the processor separately or reload from the base model at inference.</div></div>
+          <div class="pill"><div class="pill-name">Wrong LoRA target_modules</div><div class="pill-sub">loss plateaus high</div><div class="pill-body">Targeting only <code>q_proj, v_proj</code> misses the FFN. Include <code>gate_proj, up_proj, down_proj</code> for best results.</div></div>
+          <div class="pill r"><div class="pill-name">Merge-then-reload drift</div><div class="pill-sub">merged ≠ adapter</div><div class="pill-body">Merging LoRA into quantized base and saving in fp16 can drift vs. serving adapter directly. Evaluate both.</div></div>
+        </div>
+
+        <h3 class="g">Where to go from here</h3>
+        <ul>
+          <li><b>Balance the dataset</b> — reference-length distribution drives the dominant failure mode. Audit and augment short-ref samples.</li>
+          <li><b>Try higher LoRA rank</b> — jumping from <code>r=32</code> to <code>r=64</code> doubles adapter capacity for minimal cost.</li>
+          <li><b>Try DoRA</b> — drop-in replacement for LoRA in PEFT that often gives +5-10% on vision tasks.</li>
+          <li><b>Add grammar-constrained decoding</b> — <b>outlines</b> or <b>xgrammar</b> guarantees valid JSON without needing <code>stop_strings</code>.</li>
+          <li><b>Read the papers</b> — "Attention is All You Need" (2017), "LoRA" (2021), "QLoRA" (2023), "vLLM / PagedAttention" (2023), "Qwen2.5-VL Technical Report" (2024).</li>
+          <li><b>Iterate fast</b> — the tightest loop in this repo is <code>config.py</code> → <code>train.py</code> → <code>evaluate.py</code>. Keep experiments under 2 hours and you'll try 10× more ideas.</li>
+        </ul>
+
+        <div class="callout g">
+          <span class="lbl">you're ready</span>
+          Every concept in this guide maps directly to a line of code in
+          <code>train.py</code>, <code>evaluate.py</code>, or <code>config.py</code>.
+          Open them now — you'll read them like prose.
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      foundations · <a href="../index.html">home</a>
+      · <a href="00-training_terms.html">glossary</a>
+      · <a href="project_report.html">run-02 report</a>
+    </footer>
+
+    <script>
+      // ══════════════════════════════════════════════════════════════════
+      // Reveal on scroll
+      // ══════════════════════════════════════════════════════════════════
+      const io = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+      document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+      // Chip / TOC smooth scroll
+      document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+          const href = a.getAttribute('href');
+          if (href && href.length > 1) {
+            const t = document.querySelector(href);
+            if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          }
+        });
+      });
+
+      // ══════════════════════════════════════════════════════════════════
+      // Tokenizer demo — heuristic BPE-ish splitter for visualization only
+      // ══════════════════════════════════════════════════════════════════
+      (function() {
+        const input = document.getElementById('tok-input');
+        const disp  = document.getElementById('tok-display');
+        const nC    = document.getElementById('tok-chars');
+        const nT    = document.getElementById('tok-count');
+        const nR    = document.getElementById('tok-ratio');
+        if (!input) return;
+
+        // Tiny heuristic BPE-ish tokenizer for demo purposes.
+        // Real tokenizers look at merge rules; this splits on word boundaries and
+        // chunks long words — the intent is to show "words become multiple tokens."
+        function tokenize(text) {
+          if (!text) return [];
+          // Split on whitespace, keep separators attached
+          const rough = text.match(/(\s+|[^\s]+)/g) || [];
+          const tokens = [];
+          for (let piece of rough) {
+            if (/^\s+$/.test(piece)) { tokens.push(piece); continue; }
+            // Latin / digit runs: split at 4–5 chars
+            if (/^[\x20-\x7f]+$/.test(piece)) {
+              if (piece.length <= 5) { tokens.push(piece); }
+              else {
+                for (let i = 0; i < piece.length; i += 4) tokens.push(piece.slice(i, i+4));
+              }
+            } else {
+              // Arabic / non-Latin: one token per ~2 chars (BPE is aggressive here)
+              for (let i = 0; i < piece.length; i += 2) tokens.push(piece.slice(i, i+2));
+            }
+          }
+          return tokens;
+        }
+
+        function seed(s) { let h = 0; for (let i = 0; i < s.length; i++) h = ((h<<5)-h + s.charCodeAt(i)) | 0; return Math.abs(h); }
+        function fakeId(t) { return seed(t) % 152064; }
+
+        function render() {
+          const text = input.value;
+          const toks = tokenize(text);
+          disp.innerHTML = '';
+          toks.forEach((t, i) => {
+            const span = document.createElement('span');
+            span.className = 'tok t' + ((i % 5) + 1);
+            const label = t.replace(/ /g, '·').replace(/\n/g, '⏎');
+            span.innerHTML = label + '<span class="tok-id">' + fakeId(t) + '</span>';
+            disp.appendChild(span);
+          });
+          const nonWS = toks.filter(t => !/^\s+$/.test(t)).length || toks.length;
+          nC.textContent = text.length;
+          nT.textContent = toks.length;
+          nR.textContent = (text.length / Math.max(1, toks.length)).toFixed(2);
+        }
+        input.addEventListener('input', render);
+        render();
+      })();
+
+      // ══════════════════════════════════════════════════════════════════
+      // Attention heatmap
+      // ══════════════════════════════════════════════════════════════════
+      (function() {
+        const wrap  = document.getElementById('attn-tokens');
+        const cap   = document.getElementById('attn-caption');
+        if (!wrap) return;
+
+        const tokens = ['The', 'model', 'transcribes', 'Arabic', 'from', 'image', 'to', 'JSON'];
+        // Fabricated attention patterns — each query token attends to a handful of meaningful keys.
+        const attn = {
+          0: [0.9, 0.05, 0.02, 0.01, 0.01, 0.005, 0.003, 0.002],
+          1: [0.2, 0.55, 0.15, 0.05, 0.02, 0.015, 0.01, 0.005],
+          2: [0.05, 0.15, 0.45, 0.2, 0.05, 0.07, 0.02, 0.01],
+          3: [0.02, 0.05, 0.1, 0.5, 0.05, 0.2, 0.05, 0.03],
+          4: [0.03, 0.05, 0.1, 0.15, 0.4, 0.2, 0.05, 0.02],
+          5: [0.02, 0.03, 0.05, 0.3, 0.05, 0.45, 0.08, 0.02],
+          6: [0.02, 0.02, 0.02, 0.05, 0.08, 0.25, 0.46, 0.1],
+          7: [0.01, 0.02, 0.02, 0.05, 0.03, 0.05, 0.2, 0.62]
+        };
+        const captions = {
+          0: "<b>'The'</b> is the first token — it only attends to itself (causal mask blocks the future).",
+          1: "<b>'model'</b> attends strongly to itself and back to 'The'.",
+          2: "<b>'transcribes'</b> links to the agent ('model') and the object ('Arabic').",
+          3: "<b>'Arabic'</b> attends heavily to 'image', binding the language to its source.",
+          4: "<b>'from'</b> is a connector — spreads attention over 'Arabic' and 'image'.",
+          5: "<b>'image'</b> points back to 'Arabic', completing the vision-language pair.",
+          6: "<b>'to'</b> carries the action forward — attends to 'image' and 'JSON'.",
+          7: "<b>'JSON'</b> attends to 'to' and itself — the output format token."
+        };
+
+        tokens.forEach((t, i) => {
+          const el = document.createElement('div');
+          el.className = 'attn-tok';
+          el.textContent = t;
+          el.dataset.idx = i;
+          wrap.appendChild(el);
+        });
+
+        const cells = wrap.parentElement; // re-use the wrap area; we draw bars below
+        // Add a grid of heatmap cells (one row per key token, visualized as lit intensity behind each attn-tok)
+        const tokEls = wrap.querySelectorAll('.attn-tok');
+
+        function highlight(q) {
+          tokEls.forEach(el => el.classList.remove('active', 'target'));
+          tokEls[q].classList.add('active');
+          const weights = attn[q];
+          weights.forEach((w, i) => {
+            const el = tokEls[i];
+            el.style.background = 'rgba(63, 185, 80, ' + (w * 0.7) + ')';
+            el.style.borderColor = 'rgba(63, 185, 80, ' + Math.min(0.9, 0.2 + w) + ')';
+            el.style.color = w > 0.3 ? '#3fb950' : '';
+          });
+          tokEls[q].style.background = 'rgba(88, 166, 255, 0.2)';
+          tokEls[q].style.borderColor = 'rgba(88, 166, 255, 0.7)';
+          tokEls[q].style.color = '#58a6ff';
+          cap.innerHTML = captions[q];
+        }
+        function reset() {
+          tokEls.forEach(el => {
+            el.style.background = '';
+            el.style.borderColor = '';
+            el.style.color = '';
+            el.classList.remove('active', 'target');
+          });
+          cap.innerHTML = "In <b>causal</b> attention, each token can only see itself and earlier tokens — never the future. That's why generation happens one token at a time.";
+        }
+        tokEls.forEach(el => {
+          el.addEventListener('mouseenter', () => highlight(+el.dataset.idx));
+          el.addEventListener('focus',      () => highlight(+el.dataset.idx));
+        });
+        wrap.addEventListener('mouseleave', reset);
+
+        // Auto-cycle through tokens on load for first-time visual
+        let i = 0;
+        let auto = setInterval(() => {
+          if (i >= tokens.length) { clearInterval(auto); reset(); return; }
+          highlight(i++);
+        }, 900);
+        wrap.addEventListener('mouseenter', () => clearInterval(auto));
+      })();
+
+      // ══════════════════════════════════════════════════════════════════
+      // Vision patches
+      // ══════════════════════════════════════════════════════════════════
+      (function() {
+        const grid = document.getElementById('patch-grid');
+        const toks = document.getElementById('patch-tokens');
+        if (!grid) return;
+
+        for (let i = 0; i < 64; i++) {
+          const c = document.createElement('div');
+          c.className = 'patch-cell';
+          c.style.animationDelay = (i * 0.035) + 's';
+          grid.appendChild(c);
+        }
+        for (let i = 0; i < 64; i++) {
+          const v = document.createElement('div');
+          v.className = 'vtok';
+          v.textContent = 'v' + (i + 1);
+          v.style.animationDelay = (i * 0.04) + 's';
+          toks.appendChild(v);
+        }
+      })();
+
+      // ══════════════════════════════════════════════════════════════════
+      // LoRA math visualizer
+      // ══════════════════════════════════════════════════════════════════
+      (function() {
+        const $ = id => document.getElementById(id);
+        const D = $('lora-d'), R = $('lora-r');
+        const vD = $('v-d'), vR = $('v-r');
+        const boxA = $('box-A'), boxB = $('box-B');
+        const full = $('full-params'), loraP = $('lora-params'),
+              red = $('lora-red'), pct = $('lora-pct');
+        if (!D) return;
+
+        function fmtP(n) {
+          if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+          if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+          if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+          return String(n);
+        }
+        function update() {
+          const d = +D.value, r = +R.value;
+          vD.textContent = d; vR.textContent = r;
+          const fullCount = d * d;
+          const loraCount = 2 * d * r;
+          const reduction = (fullCount / loraCount).toFixed(1);
+          const percent = ((loraCount / fullCount) * 100).toFixed(2);
+
+          full.textContent = fmtP(fullCount);
+          loraP.textContent = fmtP(loraCount);
+          red.textContent = reduction;
+          pct.textContent = percent;
+
+          // Resize matrices visually.
+          const maxW = 130;
+          const rW = Math.max(16, Math.min(maxW, (r / 256) * maxW));
+          boxA.style.width  = maxW + 'px';
+          boxA.style.height = rW + 'px';
+          boxB.style.width  = rW + 'px';
+          boxB.style.height = maxW + 'px';
+        }
+        D.addEventListener('input', update);
+        R.addEventListener('input', update);
+        update();
+      })();
+
+      // ══════════════════════════════════════════════════════════════════
+      // Quantization precision viz
+      // ══════════════════════════════════════════════════════════════════
+      (function() {
+        const strip = document.getElementById('bit-strip');
+        const btns = document.querySelectorAll('.quant-btn');
+        if (!strip) return;
+
+        const profiles = {
+          fp32: { bits: 32, sign: 1, exp: 8,  mant: 23, size: '32 GB', use: 'legacy, research' },
+          fp16: { bits: 16, sign: 1, exp: 5,  mant: 10, size: '16 GB', use: 'older training, some inference' },
+          bf16: { bits: 16, sign: 1, exp: 8,  mant: 7,  size: '16 GB', use: 'modern training · default' },
+          int8: { bits: 8,  sign: 1, exp: 0,  mant: 7,  size: '8 GB',  use: 'inference quantization' },
+          nf4:  { bits: 4,  sign: 0, exp: 0,  mant: 4,  size: '4 GB',  use: 'QLoRA fine-tune base' }
+        };
+
+        function render(key) {
+          const p = profiles[key];
+          strip.innerHTML = '';
+          // Always render 32 slots; beyond p.bits, show "off" slots
+          for (let i = 0; i < 32; i++) {
+            const b = document.createElement('div');
+            b.className = 'bit';
+            if (i >= p.bits) {
+              b.classList.add('off');
+              b.textContent = '·';
+            } else if (i < p.sign) {
+              b.classList.add('sign');
+              b.textContent = 'S';
+            } else if (i < p.sign + p.exp) {
+              b.classList.add('exp');
+              b.textContent = 'E';
+            } else {
+              b.classList.add('mant');
+              b.textContent = 'M';
+            }
+            b.style.animationDelay = (i * 0.02) + 's';
+            strip.appendChild(b);
+          }
+          document.getElementById('q-bits').textContent = p.bits;
+          document.getElementById('q-sign').textContent = p.sign;
+          document.getElementById('q-exp').textContent  = p.exp;
+          document.getElementById('q-mant').textContent = p.mant;
+          document.getElementById('q-size').textContent = p.size;
+          document.getElementById('q-use').textContent  = p.use;
+        }
+
+        btns.forEach(b => {
+          b.addEventListener('click', () => {
+            btns.forEach(x => x.classList.remove('active'));
+            b.classList.add('active');
+            render(b.dataset.precision);
+          });
+        });
+        render('fp32');
+      })();
+
+      // ══════════════════════════════════════════════════════════════════
+      // Memory bars — animate on reveal (already width-set, so just trigger CSS)
+      // ══════════════════════════════════════════════════════════════════
+
+      // ══════════════════════════════════════════════════════════════════
+      // Training loop animation
+      // ══════════════════════════════════════════════════════════════════
+      (function() {
+        const stages = [
+          document.getElementById('ls-1'),
+          document.getElementById('ls-2'),
+          document.getElementById('ls-3'),
+          document.getElementById('ls-4'),
+          document.getElementById('ls-5')
+        ].filter(Boolean);
+        const play = document.getElementById('loop-play');
+        const stop = document.getElementById('loop-stop');
+        const counter = document.getElementById('loop-steps');
+        if (!play) return;
+
+        let timer = null, idx = 0, steps = 0;
+
+        function tick() {
+          stages.forEach(s => s.classList.remove('active'));
+          stages[idx].classList.add('active');
+          if (idx === stages.length - 1) {
+            steps++;
+            counter.textContent = steps;
+          }
+          idx = (idx + 1) % stages.length;
+        }
+        play.addEventListener('click', () => {
+          if (timer) return;
+          tick();
+          timer = setInterval(tick, 700);
+        });
+        stop.addEventListener('click', () => {
+          clearInterval(timer); timer = null;
+          stages.forEach(s => s.classList.remove('active'));
+        });
+      })();
+
+      // ══════════════════════════════════════════════════════════════════
+      // KV cache compare
+      // ══════════════════════════════════════════════════════════════════
+      (function() {
+        const noCache = document.getElementById('kv-nocache');
+        const cache   = document.getElementById('kv-cache');
+        const nC = document.getElementById('kv-nocache-count');
+        const cC = document.getElementById('kv-cache-count');
+        if (!noCache) return;
+
+        const N = 6;
+
+        function renderAt(step) {
+          noCache.innerHTML = '';
+          cache.innerHTML = '';
+
+          let noCount = 0, cCount = 0;
+          for (let row = 0; row < N; row++) {
+            for (let col = 0; col < N; col++) {
+              // No-cache: every step recomputes every (row, col) up to step
+              const nc = document.createElement('div');
+              nc.className = 'kv-cell';
+              if (col <= step && row <= step) { nc.classList.add('computed'); nc.textContent = '✓'; noCount++; }
+              noCache.appendChild(nc);
+
+              // With-cache: only the new row at step is computed; earlier rows reused
+              const cc = document.createElement('div');
+              cc.className = 'kv-cell';
+              if (row === step && col <= step) { cc.classList.add('computed'); cc.textContent = '✓'; cCount++; }
+              else if (row < step && col <= row) { cc.classList.add('reused'); cc.textContent = '·'; }
+              cache.appendChild(cc);
+            }
+          }
+          // Totals accumulated over all steps 0..step:
+          let totalNo = 0, totalC = 0;
+          for (let s = 0; s <= step; s++) {
+            totalNo += (s + 1) * (s + 1);
+            totalC  += (s + 1);
+          }
+          nC.textContent = totalNo;
+          cC.textContent = totalC;
+        }
+
+        let s = 0;
+        function cycle() {
+          renderAt(s);
+          s = (s + 1) % N;
+        }
+        cycle();
+        setInterval(cycle, 1400);
+      })();
+
+      // ══════════════════════════════════════════════════════════════════
+      // Generation demo
+      // ══════════════════════════════════════════════════════════════════
+      (function() {
+        const prompt = document.getElementById('gen-prompt');
+        const probs  = document.getElementById('gen-probs');
+        const step   = document.getElementById('gen-step');
+        const reset  = document.getElementById('gen-reset');
+        if (!prompt) return;
+
+        // Scripted scenario: force a realistic first-draft JSON output.
+        const sequence = [
+          [ {t:'{', p:0.71, pick:true}, {t:'Sure', p:0.12}, {t:'The', p:0.08}, {t:'I', p:0.05}, {t:'Here', p:0.04} ],
+          [ {t:'"transcription"', p:0.86, pick:true}, {t:'"text"', p:0.07}, {t:'"result"', p:0.04}, {t:'"data"', p:0.03} ],
+          [ {t:':"', p:0.94, pick:true}, {t:':\n', p:0.03}, {t:':', p:0.02}, {t:':\'', p:0.01} ],
+          [ {t:'مرحبا', p:0.58, pick:true}, {t:'السلام', p:0.21}, {t:'Hello', p:0.12}, {t:'Hi', p:0.09} ],
+          [ {t:' بالعالم', p:0.79, pick:true}, {t:' بك', p:0.11}, {t:' عالم', p:0.06}, {t:' الناس', p:0.04} ],
+          [ {t:'"', p:0.91, pick:true}, {t:'!', p:0.04}, {t:'.', p:0.03}, {t:'؟', p:0.02} ],
+          [ {t:'}', p:0.96, pick:true}, {t:',', p:0.02}, {t:'.', p:0.01}, {t:'\n', p:0.01} ]
+        ];
+
+        let i = 0;
+
+        function showProbs(idx) {
+          probs.innerHTML = '';
+          const cands = sequence[idx];
+          if (!cands) { probs.innerHTML = '<div style="font-size:0.62rem;color:var(--sub);padding:0.5rem;">generation complete · <span style="color:var(--green)">EOS</span></div>'; return; }
+          cands.forEach(c => {
+            const el = document.createElement('div');
+            el.className = 'gen-prob' + (c.pick ? ' pick' : '');
+            el.innerHTML =
+              '<div class="pb" style="width:' + (c.p * 100) + '%"></div>' +
+              '<div class="pt">' + c.t.replace(/"/g, '&quot;') + '</div>' +
+              '<div class="pv">' + (c.p * 100).toFixed(0) + '% · p</div>';
+            probs.appendChild(el);
+          });
+        }
+
+        function doStep() {
+          if (i >= sequence.length) return;
+          const pick = sequence[i].find(c => c.pick);
+          const span = document.createElement('span');
+          span.className = 'gtok';
+          span.textContent = pick.t;
+          prompt.appendChild(span);
+          i++;
+          showProbs(i);
+        }
+        function doReset() {
+          // keep the first 5 <span> (original prompt)
+          prompt.innerHTML =
+            '<span class="ptok">Transcribe</span> <span class="ptok">this</span> ' +
+            '<span class="ptok">image:</span> <span class="ptok">[IMG]</span> <span class="ptok">→</span>';
+          i = 0;
+          showProbs(0);
+        }
+        step.addEventListener('click', doStep);
+        reset.addEventListener('click', doReset);
+        showProbs(0);
+      })();
+    </script>
+  </body>
+</html>
