@@ -458,11 +458,212 @@
         margin-top: 0.4rem;
       }
 
+      /* ── animation: card reveal on scroll ── */
+      .reveal {
+        opacity: 0;
+        transform: translateY(14px);
+        transition: opacity .55s ease, transform .55s cubic-bezier(.2, .7, .2, 1);
+      }
+      .reveal.in {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .reveal.delay-1 { transition-delay: .06s; }
+      .reveal.delay-2 { transition-delay: .12s; }
+      .reveal.delay-3 { transition-delay: .18s; }
+      .reveal.delay-4 { transition-delay: .24s; }
+      .reveal.delay-5 { transition-delay: .30s; }
+
+      /* ── animated section dividers ── */
+      .section-label::after {
+        animation: sweep 6s ease-in-out infinite;
+      }
+      @keyframes sweep {
+        0%, 100% { opacity: .55; }
+        50%      { opacity: 1; }
+      }
+
+      /* ── chip subtle glow on hover ── */
+      .chip {
+        position: relative;
+        overflow: hidden;
+      }
+      .chip::before {
+        content: "";
+        position: absolute;
+        top: 0; left: -100%;
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg,
+          transparent, rgba(88, 166, 255, 0.15), transparent);
+        transition: left .55s ease;
+      }
+      .chip:hover::before { left: 100%; }
+
+      /* ── numeric flash on change (calculator) ── */
+      @keyframes numFlash {
+        0%   { color: var(--amber); transform: scale(1.06); }
+        100% { /* settles back via .v / .v.green / .v.amber color */ transform: scale(1); }
+      }
+      .results .v.flash { animation: numFlash .4s ease-out; }
+
+      /* ── run-stat counter pulse on viewport entry ── */
+      .run-stat-num.glow {
+        text-shadow: 0 0 18px currentColor;
+        transition: text-shadow .8s ease;
+      }
+
+      /* ── results panel border breathe ── */
+      .results {
+        transition: border-color .3s ease, box-shadow .3s ease;
+      }
+      .results.touched {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 1px rgba(88, 166, 255, 0.12),
+                    0 0 24px rgba(88, 166, 255, 0.06);
+      }
+
+      /* ── batch arrows: animated chevrons ── */
+      .arrow {
+        animation: nudge 1.6s ease-in-out infinite;
+      }
+      .arrow:nth-of-type(2) { animation-delay: .8s; }
+      @keyframes nudge {
+        0%, 100% { transform: translateX(0);   opacity: .55; }
+        50%      { transform: translateX(4px); opacity: 1; }
+      }
+
+      /* ── stage box hover: subtle lift ── */
+      .stage-box {
+        transition: transform .25s ease, border-color .25s ease,
+                    background .25s ease;
+      }
+      .stage-box:hover {
+        transform: translateY(-2px);
+        border-color: var(--blue);
+        background: rgba(31, 38, 50, 0.8);
+      }
+
+      /* ── loss SVG: phase highlight + path draw ── */
+      .phase-rect {
+        transition: opacity .4s ease, fill .4s ease;
+      }
+      .phase-rect.active {
+        opacity: 1;
+        filter: drop-shadow(0 0 8px currentColor);
+      }
+      #train-line {
+        stroke-dasharray: 2200;
+        stroke-dashoffset: 2200;
+        animation: drawLine 3s cubic-bezier(.4, 0, .2, 1) .2s forwards;
+      }
+      #eval-line {
+        stroke-dasharray: 800;
+        stroke-dashoffset: 800;
+        animation: drawLine 1.6s ease-out 2.6s forwards;
+      }
+      @keyframes drawLine {
+        to { stroke-dashoffset: 0; }
+      }
+      .eval-dot {
+        opacity: 0;
+        animation: dotPop .3s ease-out forwards;
+        transform-origin: center;
+        transform-box: fill-box;
+      }
+      .eval-dot.d1 { animation-delay: 2.9s; }
+      .eval-dot.d2 { animation-delay: 3.4s; }
+      .eval-dot.d3 { animation-delay: 3.9s; }
+      @keyframes dotPop {
+        0%   { opacity: 0; transform: scale(0.2); }
+        70%  { opacity: 1; transform: scale(1.4); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+      .eval-label {
+        opacity: 0;
+        animation: fadeIn .5s ease forwards;
+      }
+      .eval-label.d1 { animation-delay: 3.0s; }
+      .eval-label.d2 { animation-delay: 3.5s; }
+      .eval-label.d3 { animation-delay: 4.0s; }
+      .best-anno {
+        opacity: 0;
+        animation: fadeIn .6s ease forwards 4.3s;
+      }
+      @keyframes fadeIn {
+        to { opacity: 1; }
+      }
+      /* breathing pulse on the best-checkpoint dot */
+      .eval-dot.best-pulse {
+        animation: dotPop .3s ease-out forwards 3.4s,
+                   bestPulse 2.4s ease-in-out infinite 4.5s;
+      }
+      @keyframes bestPulse {
+        0%, 100% { filter: drop-shadow(0 0 0 #3fb950); }
+        50%      { filter: drop-shadow(0 0 6px #3fb950); }
+      }
+
+      /* ── flowing packets along train line ── */
+      .train-packet {
+        fill: var(--blue);
+        opacity: 0;
+        animation: trainFlow 5s linear infinite;
+      }
+      .train-packet.p2 { animation-delay: 1.6s; }
+      .train-packet.p3 { animation-delay: 3.2s; }
+      @keyframes trainFlow {
+        0%   { opacity: 0; offset-distance: 0%; }
+        8%   { opacity: 1; }
+        92%  { opacity: 1; }
+        100% { opacity: 0; offset-distance: 100%; }
+      }
+
+      /* ── glossary term hover ── */
+      .term {
+        transition: transform .25s ease, border-color .25s ease,
+                    box-shadow .25s ease;
+      }
+      .term:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, .35);
+      }
+
+      /* ── loss-btn ripple on click ── */
+      .loss-btn {
+        position: relative;
+        overflow: hidden;
+      }
+      .loss-btn .ripple {
+        position: absolute;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.25;
+        transform: scale(0);
+        animation: ripple .55s ease-out;
+        pointer-events: none;
+      }
+      @keyframes ripple {
+        to { transform: scale(4); opacity: 0; }
+      }
+
+      /* ── smooth scroll ── */
+      html { scroll-behavior: smooth; }
+
+      /* ── reset button micro-interaction ── */
+      .reset-btn {
+        transition: all .2s ease;
+      }
+      .reset-btn:hover {
+        transform: rotate(-8deg) scale(1.04);
+      }
+
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
           animation-duration: 0.01ms !important;
           animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
         }
+        html { scroll-behavior: auto; }
+        .reveal { opacity: 1; transform: none; }
       }
     </style>
   </head>
@@ -489,28 +690,24 @@
         <a class="chip" href="#glossary">all terms</a>
       </div>
 
-      <!-- ── Run-02 anchor stats ── -->
-      <div class="section-label"><span class="n">//</span> grounded in run-02</div>
-      <section class="run-stats" aria-label="Run 02 stats">
+      <!-- ── concept anchor stats ── -->
+      <div class="section-label"><span class="n">//</span> the four numbers that drive everything</div>
+      <section class="run-stats reveal" aria-label="Concept anchors">
         <div class="run-stat">
-          <div class="run-stat-num">1,120<span class="unit">samples</span></div>
-          <div class="run-stat-lbl">train set</div>
+          <div class="run-stat-num" data-count="1000" data-unit=" samples">N<span class="unit">samples</span></div>
+          <div class="run-stat-lbl">dataset size</div>
         </div>
         <div class="run-stat">
-          <div class="run-stat-num">280<span class="unit">samples</span></div>
-          <div class="run-stat-lbl">eval set</div>
+          <div class="run-stat-num green">B<span class="unit">× G</span></div>
+          <div class="run-stat-lbl">effective batch</div>
         </div>
         <div class="run-stat">
-          <div class="run-stat-num">1,680<span class="unit">steps</span></div>
-          <div class="run-stat-lbl">3 epochs total</div>
+          <div class="run-stat-num amber">⌈ N/(B·G) ⌉</div>
+          <div class="run-stat-lbl">steps per epoch</div>
         </div>
         <div class="run-stat">
-          <div class="run-stat-num green">1.6248</div>
-          <div class="run-stat-lbl">best eval loss</div>
-        </div>
-        <div class="run-stat">
-          <div class="run-stat-num amber">~44<span class="unit">min</span></div>
-          <div class="run-stat-lbl">A10G wall-clock</div>
+          <div class="run-stat-num">× E</div>
+          <div class="run-stat-lbl">× epochs = total steps</div>
         </div>
       </section>
 
@@ -518,46 +715,49 @@
       <div class="section-label" id="calculator">
         <span class="n">//</span> interactive · how steps are counted
       </div>
-      <section class="panel">
+      <section class="panel reveal">
         <h2>Drag the sliders. Watch the math change.</h2>
         <p class="panel-sub">
-          Total steps depend on dataset size, batch size, gradient accumulation,
-          and number of epochs. The trainer reports steps — not samples — so
-          knowing this conversion is essential.
+          Total steps depend on four dials: dataset size (<code style="color:var(--amber)">N</code>),
+          batch size (<code style="color:var(--amber)">B</code>), gradient accumulation
+          (<code style="color:var(--amber)">G</code>), and epochs
+          (<code style="color:var(--amber)">E</code>). Trainers report
+          <em>steps</em>, not samples — getting fluent with this conversion
+          makes every other number on the page click.
         </p>
 
         <div class="calc">
           <div class="controls">
             <div class="control">
-              <label>dataset size <span class="val" id="v-N">1120</span></label>
-              <input id="N" type="range" min="20" max="5000" step="20" value="1120" />
+              <label>N · dataset size <span class="val" id="v-N">1000</span></label>
+              <input id="N" type="range" min="20" max="5000" step="20" value="1000" />
             </div>
             <div class="control">
-              <label>per_device_train_batch_size <span class="val" id="v-B">1</span></label>
-              <input id="B" type="range" min="1" max="16" step="1" value="1" />
+              <label>B · batch_size <span class="val" id="v-B">2</span></label>
+              <input id="B" type="range" min="1" max="16" step="1" value="2" />
             </div>
             <div class="control">
-              <label>gradient_accumulation_steps <span class="val" id="v-G">2</span></label>
-              <input id="G" type="range" min="1" max="16" step="1" value="2" />
+              <label>G · grad_accum_steps <span class="val" id="v-G">4</span></label>
+              <input id="G" type="range" min="1" max="16" step="1" value="4" />
             </div>
             <div class="control">
-              <label>num_train_epochs <span class="val" id="v-E">3</span></label>
+              <label>E · num_epochs <span class="val" id="v-E">3</span></label>
               <input id="E" type="range" min="1" max="10" step="1" value="3" />
             </div>
-            <button class="reset-btn" id="reset">↺ reset to run-02</button>
+            <button class="reset-btn" id="reset">↺ reset</button>
           </div>
 
           <div class="results" aria-live="polite">
-            <div class="row"><span class="lbl">effective batch</span><span class="v blue" id="r-eff">2</span></div>
-            <div class="row"><span class="lbl">steps per epoch</span><span class="v" id="r-spe">560</span></div>
-            <div class="row"><span class="lbl">total steps</span><span class="v green" id="r-total">1,680</span></div>
-            <div class="row"><span class="lbl">samples seen</span><span class="v" id="r-samples">3,360</span></div>
-            <div class="row"><span class="lbl">est. wall-clock</span><span class="v amber" id="r-time">~44 min</span></div>
+            <div class="row"><span class="lbl">effective batch</span><span class="v blue" id="r-eff">8</span></div>
+            <div class="row"><span class="lbl">steps per epoch</span><span class="v" id="r-spe">125</span></div>
+            <div class="row"><span class="lbl">total steps</span><span class="v green" id="r-total">375</span></div>
+            <div class="row"><span class="lbl">samples seen</span><span class="v" id="r-samples">3,000</span></div>
+            <div class="row"><span class="lbl">≈ wall-clock</span><span class="v amber" id="r-time">~10 min</span></div>
             <div class="formula">
-              <code>effective_batch</code> = batch × grad_accum<br/>
-              <code>steps/epoch</code>     = ⌈ N / effective_batch ⌉<br/>
-              <code>total_steps</code>     = steps/epoch × epochs<br/>
-              <span style="color:var(--sub)">A10G ≈ 38 steps/min on this model.</span>
+              <code>effective_batch</code> = B × G<br/>
+              <code>steps / epoch</code>   = ⌈ N / (B × G) ⌉<br/>
+              <code>total_steps</code>     = steps/epoch × E<br/>
+              <span style="color:var(--sub)">Wall-clock estimate assumes ~38 steps/min (typical for a 7B VL model on a 24 GB GPU).</span>
             </div>
           </div>
         </div>
@@ -567,21 +767,21 @@
       <div class="section-label" id="micro-batch">
         <span class="n">//</span> what counts as one step
       </div>
-      <section class="batch-viz">
-        <h2>Micro-batch → Step → Optimizer update</h2>
+      <section class="batch-viz reveal">
+        <h2>Micro-batch → Accumulate → Optimizer update</h2>
         <p class="panel-sub">
-          With <code style="color:var(--amber)">batch_size=1</code> and
-          <code style="color:var(--amber)">grad_accum=2</code>, the trainer
-          processes 2 samples (forward+backward) before one optimizer step.
-          That's why you can keep batch=1 to fit VRAM but still get the gradient
-          quality of batch=2.
+          One <em>step</em> is one weight update — not one sample. The trainer
+          can split that update over several smaller forward+backward passes
+          (micro-batches) and sum their gradients before applying. The
+          diagram below is wired to the calculator above; drag the sliders
+          and watch it rebuild.
         </p>
 
         <div class="batch-stage">
           <div class="stage-box">
             <div class="stage-tag">micro-batches</div>
             <div class="stage-val" id="micro-count">2</div>
-            <div class="stage-meta">size = batch_size</div>
+            <div class="stage-meta">G passes of B samples</div>
             <div class="micro-row" id="micro-row">
               <span class="micro"></span>
               <span class="micro"></span>
@@ -590,7 +790,7 @@
           <div class="arrow">→</div>
           <div class="stage-box">
             <div class="stage-tag">accumulate gradients</div>
-            <div class="stage-val amber" id="grad-count">2×</div>
+            <div class="stage-val amber" id="grad-count">8×</div>
             <div class="stage-meta">no weights updated yet</div>
           </div>
           <div class="arrow">→</div>
@@ -602,10 +802,11 @@
         </div>
 
         <div class="loss-explain green" style="margin-top:1.4rem">
-          <strong>Why batch_size=1 in our setup?</strong> Each Qwen2.5-VL
-          sample contains a base64-decoded handwriting image and ~1k tokens.
-          Two samples already nudge a 23 GB A10G to its limit. Gradient
-          accumulation lets us simulate batch=2 (or higher) without OOM.
+          <strong>Why split a batch at all?</strong> Big batches give smoother
+          gradients but eat VRAM. If a batch of 16 won't fit, run
+          <code style="color:var(--amber)">batch_size=4</code> with
+          <code style="color:var(--amber)">grad_accum=4</code> — same effective
+          batch, fits the card. The model can't tell the difference.
         </div>
       </section>
 
@@ -613,13 +814,16 @@
       <div class="section-label" id="loss">
         <span class="n">//</span> reading a loss curve
       </div>
-      <section class="loss-viz">
-        <h2>Train loss vs. eval loss — Run 02</h2>
+      <section class="loss-viz reveal">
+        <h2>Train loss vs. eval loss — the canonical shape</h2>
         <p class="panel-sub">
           Loss = how wrong the model's predictions are (lower = better). Two
           curves matter: <span style="color:var(--blue)">train</span> (what
-          the model sees) and <span style="color:var(--green)">eval</span>
-          (what it doesn't). Click a phase to learn what to look for.
+          the model sees and learns from) and
+          <span style="color:var(--green)">eval</span> (what it never
+          trains on — the honest signal). The chart below is the textbook
+          shape for an LLM fine-tune: a steep warm-up, a fitting plateau,
+          then a gentle overfit. Click a phase to learn what to watch for.
         </p>
 
         <svg viewBox="0 0 800 360" id="loss-svg" preserveAspectRatio="xMidYMid meet">
@@ -635,13 +839,15 @@
           <line x1="60" y1="40"  x2="60"  y2="300" stroke="#484f58" stroke-width="1"/>
           <line x1="60" y1="300" x2="760" y2="300" stroke="#484f58" stroke-width="1"/>
 
+          <!-- y axis label -->
+          <text x="14" y="170" font-family="Fira Code" font-size="9" fill="#8b949e"
+                transform="rotate(-90 14 170)" text-anchor="middle">loss</text>
+
           <!-- y labels -->
           <g font-family="Fira Code" font-size="9" fill="#8b949e">
-            <text x="50" y="44"  text-anchor="end">8.0</text>
-            <text x="50" y="104" text-anchor="end">6.0</text>
-            <text x="50" y="164" text-anchor="end">4.0</text>
-            <text x="50" y="224" text-anchor="end">2.0</text>
-            <text x="50" y="284" text-anchor="end">1.4</text>
+            <text x="50" y="44"  text-anchor="end">high</text>
+            <text x="50" y="164" text-anchor="end">mid</text>
+            <text x="50" y="284" text-anchor="end">low</text>
           </g>
           <!-- x labels (epochs) -->
           <g font-family="Fira Code" font-size="9" fill="#8b949e" text-anchor="middle">
@@ -652,77 +858,81 @@
           </g>
 
           <!-- phase shading -->
-          <rect x="60"  y="40" width="233" height="260" fill="rgba(88,166,255,0.04)"
-                id="phase-warmup"/>
-          <rect x="293" y="40" width="234" height="260" fill="rgba(63,185,80,0.04)"
-                id="phase-fitting"/>
-          <rect x="527" y="40" width="233" height="260" fill="rgba(210,153,34,0.05)"
-                id="phase-overfit"/>
+          <rect class="phase-rect active" data-phase="warmup"  x="60"  y="40"
+                width="233" height="260" fill="rgba(88,166,255,0.06)"  color="#58a6ff"/>
+          <rect class="phase-rect"        data-phase="fitting" x="293" y="40"
+                width="234" height="260" fill="rgba(63,185,80,0.04)" color="#3fb950"/>
+          <rect class="phase-rect"        data-phase="overfit" x="527" y="40"
+                width="233" height="260" fill="rgba(210,153,34,0.05)" color="#d29922"/>
 
-          <!-- train loss path: from step 10 (loss 8.01) → step 1680 (1.45) -->
-          <!-- waypoints normalized: y = 300 - (loss-1.4)*(260/(8.0-1.4)) -->
-          <path id="train-line" fill="none" stroke="#58a6ff" stroke-width="1.6"
+          <!-- train loss: textbook decay then plateau -->
+          <path id="train-line" fill="none" stroke="#58a6ff" stroke-width="1.8"
                 stroke-linecap="round" stroke-linejoin="round"
-                d="M 65,12
-                   L 75,21
-                   L 85,55
-                   L 105,108
+                d="M 65,55
+                   L 80,75
+                   L 100,108
                    L 125,148
-                   L 145,180
-                   L 165,212
-                   L 185,229
-                   L 205,246
-                   L 225,253
-                   L 245,253
-                   L 270,255
-                   L 295,250
-                   L 320,256
-                   L 350,265
-                   L 380,257
-                   L 410,260
-                   L 450,263
-                   L 490,259
-                   L 527,260
-                   L 570,267
-                   L 615,269
-                   L 660,266
-                   L 720,267
-                   L 760,266" />
+                   L 150,180
+                   L 180,210
+                   L 215,235
+                   L 250,250
+                   L 295,255
+                   L 340,258
+                   L 390,260
+                   L 440,261
+                   L 490,261
+                   L 527,261
+                   L 580,260
+                   L 630,260
+                   L 680,259
+                   L 730,259
+                   L 760,259"
+                style="motion-path: path('M 65,55 L 760,259');" />
 
-          <!-- eval loss markers: 3 dots -->
+          <!-- flowing packets following the train curve -->
+          <g style="offset-path: path('M 65,55 L 80,75 L 100,108 L 125,148 L 150,180 L 180,210 L 215,235 L 250,250 L 295,255 L 340,258 L 390,260 L 440,261 L 490,261 L 527,261 L 580,260 L 630,260 L 680,259 L 730,259 L 760,259');">
+            <circle class="train-packet"    cx="0" cy="0" r="3"/>
+            <circle class="train-packet p2" cx="0" cy="0" r="3"/>
+            <circle class="train-packet p3" cx="0" cy="0" r="3"/>
+          </g>
+
+          <!-- eval epoch markers -->
           <g>
             <line x1="293" y1="40" x2="293" y2="300" stroke="#3fb950" stroke-width="0.4" stroke-dasharray="2 4"/>
             <line x1="527" y1="40" x2="527" y2="300" stroke="#3fb950" stroke-width="0.4" stroke-dasharray="2 4"/>
             <line x1="760" y1="40" x2="760" y2="300" stroke="#3fb950" stroke-width="0.4" stroke-dasharray="2 4"/>
           </g>
-          <!-- eval line connecting the 3 epoch evals: 1.6350, 1.6248, 1.6387 -->
-          <!-- y for 1.6350 ≈ 300 - (1.635-1.4)*(260/6.6) ≈ 300 - 9.2 ≈ 290.8 -->
-          <!-- y for 1.6248 ≈ 290.4; y for 1.6387 ≈ 290.95 -->
-          <path d="M 293,260 L 527,259 L 760,261" fill="none"
-                stroke="#3fb950" stroke-width="1.6" stroke-dasharray="6 3" />
+          <!-- eval line: down to minimum, then nudges back up -->
+          <path id="eval-line" d="M 293,250 L 527,238 L 760,252" fill="none"
+                stroke="#3fb950" stroke-width="1.8" stroke-dasharray="6 3" />
 
-          <circle cx="293" cy="260" r="5" fill="#0a0c10" stroke="#3fb950" stroke-width="2"/>
-          <circle cx="527" cy="259" r="6" fill="#3fb950" stroke="#3fb950" stroke-width="2"/>
-          <circle cx="760" cy="261" r="5" fill="#0a0c10" stroke="#3fb950" stroke-width="2"/>
+          <circle class="eval-dot d1" cx="293" cy="250" r="5" fill="#0a0c10"
+                  stroke="#3fb950" stroke-width="2"/>
+          <circle class="eval-dot best-pulse" cx="527" cy="238" r="6.5" fill="#3fb950"
+                  stroke="#3fb950" stroke-width="2"/>
+          <circle class="eval-dot d3" cx="760" cy="252" r="5" fill="#0a0c10"
+                  stroke="#3fb950" stroke-width="2"/>
 
-          <!-- annotations -->
+          <!-- eval annotations -->
           <g font-family="Fira Code" font-size="10" fill="#3fb950">
-            <text x="293" y="248" text-anchor="middle">1.6350</text>
-            <text x="527" y="247" text-anchor="middle">1.6248 ★</text>
-            <text x="760" y="249" text-anchor="end">1.6387</text>
+            <text class="eval-label d1" x="293" y="241" text-anchor="middle">eval ↓</text>
+            <text class="eval-label d2" x="527" y="226" text-anchor="middle">★ minimum</text>
+            <text class="eval-label d3" x="760" y="243" text-anchor="end">eval ↑</text>
           </g>
 
           <!-- best checkpoint pointer -->
-          <line x1="527" y1="180" x2="527" y2="252" stroke="#d29922" stroke-width="0.6" stroke-dasharray="2 2"/>
-          <text x="527" y="172" text-anchor="middle" font-family="Fira Code" font-size="9" fill="#d29922">
-            checkpoint-1120 · best
-          </text>
+          <g class="best-anno">
+            <line x1="527" y1="170" x2="527" y2="230" stroke="#d29922" stroke-width="0.6" stroke-dasharray="2 2"/>
+            <text x="527" y="162" text-anchor="middle" font-family="Fira Code" font-size="9" fill="#d29922">
+              best checkpoint
+            </text>
+          </g>
 
           <!-- legend -->
           <g transform="translate(610, 50)" font-family="Fira Code" font-size="9" fill="#8b949e">
-            <line x1="0"  y1="0" x2="20" y2="0" stroke="#58a6ff" stroke-width="1.6"/>
+            <line x1="0"  y1="0" x2="20" y2="0" stroke="#58a6ff" stroke-width="1.8"/>
             <text x="26" y="3">train loss</text>
-            <line x1="0"  y1="14" x2="20" y2="14" stroke="#3fb950" stroke-width="1.6" stroke-dasharray="6 3"/>
+            <line x1="0"  y1="14" x2="20" y2="14" stroke="#3fb950" stroke-width="1.8" stroke-dasharray="6 3"/>
             <text x="26" y="17">eval loss</text>
           </g>
         </svg>
@@ -734,10 +944,11 @@
         </div>
 
         <div class="loss-explain" id="phase-text">
-          <strong>Warm-up (steps 0–280, epoch 0–0.5).</strong>
-          Train loss collapses from <b>8.01 → 1.56</b> (≈80%) as the LoRA
-          adapter learns the most obvious patterns. Learning rate is ramping
-          up linearly; eval is not measured yet.
+          <strong>Warm-up.</strong> The first chunk of training: train loss
+          collapses fast as the model picks up the most obvious patterns.
+          Learning rate is ramping up linearly from zero. Eval isn't usually
+          measured yet — too noisy this early. <em>What to watch:</em> the
+          curve should drop steeply, not stall.
         </div>
       </section>
 
@@ -745,27 +956,29 @@
       <div class="section-label" id="eval">
         <span class="n">//</span> evaluation — what it really is
       </div>
-      <section class="panel">
+      <section class="panel reveal">
         <h2>Evaluation = "test on data the model has never seen"</h2>
         <p class="panel-sub">
-          During training you also have a held-out
-          <span style="color:var(--green)">eval set</span> (here: 280 samples
-          in <code style="color:var(--amber)">data/eval/eval.jsonl</code>).
-          Once per epoch the trainer freezes weights, runs the model over the
-          eval set, and reports the mean loss. This is the only honest signal
-          for "is the model getting better at things it hasn't memorized?"
+          Before training, you set aside a slice of the dataset and never
+          touch it during fitting. Once per epoch the trainer freezes the
+          weights, runs the model over that held-out
+          <span style="color:var(--green)">eval set</span>, and reports the
+          mean loss. It's the only honest signal for "is the model getting
+          better at things it hasn't memorized?"
         </p>
 
         <div class="loss-explain">
-          <strong>Two senses of "evaluation" in this project.</strong><br/>
+          <strong>Two senses of "evaluation" you'll see in any project.</strong><br/>
           <span style="color:var(--blue)">①</span> <b>During training</b> —
-          notebook 05 reports <code style="color:var(--amber)">eval_loss</code>
-          per epoch (raw cross-entropy on next-token prediction).<br/>
+          a fast <code style="color:var(--amber)">eval_loss</code> reported
+          per epoch (raw cross-entropy on next-token prediction). Cheap, runs
+          on the same loop as training.<br/>
           <span style="color:var(--green)">②</span> <b>Post-training</b> —
-          notebook 06 runs the model end-to-end and computes
-          <span style="color:var(--blue)">CER</span>,
-          <span style="color:var(--blue)">WER</span>, exact-match, valid-JSON
-          rates. These are task metrics; loss is a proxy.
+          a separate evaluation pipeline runs the model end-to-end and
+          computes task metrics: <span style="color:var(--blue)">CER</span>,
+          <span style="color:var(--blue)">WER</span>, exact-match, BLEU,
+          accuracy — whatever fits the task. These measure what users
+          actually care about; loss is a proxy.
         </div>
       </section>
 
@@ -773,36 +986,39 @@
       <div class="section-label" id="checkpoint">
         <span class="n">//</span> checkpoints — saved snapshots
       </div>
-      <section class="panel">
-        <h2>checkpoint-1120 vs. checkpoint-1680</h2>
+      <section class="panel reveal">
+        <h2>Best checkpoint vs. final checkpoint</h2>
         <p class="panel-sub">
           A checkpoint = the full set of trainable weights at a specific step,
           dumped to disk so you can restore (or evaluate) that exact model
-          state later. Run-02 saves one per epoch.
+          state later. Trainers typically save one per epoch — and the
+          numbered subfolder name (e.g. <code style="color:var(--amber)">checkpoint-1120</code>)
+          is the global step count at save time.
         </p>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
           <div class="term green">
-            <div class="term-name">checkpoint-1120</div>
-            <div class="term-formal">end of epoch 2 · best</div>
+            <div class="term-name">Best checkpoint</div>
+            <div class="term-formal">lowest eval loss across the run</div>
             <div class="term-body">
-              Eval loss <b style="color:var(--green)">1.6248</b> — the lowest
-              of the run. This is the model state to <b>ship</b>.
+              The state where the model generalized best.
+              <b>This is the one you ship.</b> Often falls in the middle of
+              training, not the end.
             </div>
           </div>
           <div class="term amber">
-            <div class="term-name">checkpoint-1680</div>
-            <div class="term-formal">end of epoch 3 · final</div>
+            <div class="term-name">Final checkpoint</div>
+            <div class="term-formal">last save, after training ends</div>
             <div class="term-body">
-              Eval loss <b style="color:var(--amber)">1.6387</b> — slightly
-              worse despite more training. The classic overfit signature.
+              The most-trained version. Sometimes also the best — but if
+              eval loss climbed in the last epoch (mild overfit), an
+              <em>earlier</em> checkpoint will do better on real data.
             </div>
           </div>
         </div>
         <div class="loss-explain amber" style="margin-top:1rem">
-          <strong>Tip:</strong> Always evaluate the best checkpoint, not just
-          the final one. Notebook 06 now has a <code style="color:var(--amber)">CHECKPOINT</code>
-          knob — set it to <code style="color:var(--amber)">'checkpoint-1120'</code>
-          to compare.
+          <strong>Rule of thumb:</strong> always evaluate at least two
+          checkpoints — the best (by eval loss) and the final — and compare
+          their task metrics. Don't trust "more training = better."
         </div>
       </section>
 
@@ -810,24 +1026,30 @@
       <div class="section-label" id="fit">
         <span class="n">//</span> over-fit, under-fit, just right
       </div>
-      <section class="panel">
+      <section class="panel reveal">
         <h2>How to read the train/eval gap</h2>
+        <p class="panel-sub">
+          Comparing the two curves is the single most useful diagnostic in
+          training. The shape of the <em>gap</em> tells you what to do next.
+        </p>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:0.6rem">
           <div class="term red">
             <div class="term-name">Underfit</div>
             <div class="term-formal">both losses high</div>
             <div class="term-body">
-              Train ≈ eval, both stuck high. Model hasn't learned enough.
-              <b>Fix:</b> train longer, raise LR, raise LoRA rank,
-              add layers to <code>target_modules</code>.
+              Train ≈ eval, both stuck high. The model hasn't learned enough.
+              <b>Fix:</b> train longer, raise LR, raise model capacity
+              (e.g. higher LoRA rank), add more layers to
+              <code>target_modules</code>.
             </div>
           </div>
           <div class="term green">
             <div class="term-name">Just right</div>
             <div class="term-formal">small, stable gap</div>
             <div class="term-body">
-              Both decreasing together; eval still trending down.
-              <b>Run-02 epoch 2 is here.</b>
+              Both losses are decreasing together. Train is a little lower
+              than eval, but eval is still trending down. Keep training —
+              you haven't hit the sweet spot yet.
             </div>
           </div>
           <div class="term amber">
@@ -835,17 +1057,19 @@
             <div class="term-formal">train ↓, eval flattens</div>
             <div class="term-body">
               Eval starts to plateau or nudge up while train keeps falling.
-              <b>Run-02 epoch 3 is here</b> (train 1.46, eval 1.64 — gap
-              widened to 0.18). Stop earlier or add regularization.
+              The gap widens. <b>Stop here</b> — earlier checkpoints are
+              your best bet. Or add a touch of regularization (dropout,
+              weight decay).
             </div>
           </div>
           <div class="term red">
             <div class="term-name">Severe overfit</div>
             <div class="term-formal">eval climbs sharply</div>
             <div class="term-body">
-              Train near zero, eval rising fast. Model memorized the
-              training set. <b>Fix:</b> early stopping, more data,
-              dropout up, weight decay, lower LR.
+              Train near zero, eval rising fast. The model has memorized the
+              training set. <b>Fix:</b> early stopping, more data, more
+              dropout, more weight decay, lower LR — and don't ship the
+              final checkpoint.
             </div>
           </div>
         </div>
@@ -856,243 +1080,258 @@
         <span class="n">//</span> all the terms · alphabetical
       </div>
       <section class="glossary">
-        <div class="term">
+        <div class="term reveal">
           <div class="term-name">batch_size</div>
           <div class="term-formal">samples per micro-batch</div>
           <div class="term-body">
             How many samples the model sees in one forward+backward pass.
             Bigger = smoother gradients, more VRAM.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 1 (image-heavy samples; A10G can't fit more)</div>
+          <div class="term-eg"><b>Typical:</b> 1–8 for 7B+ LLMs on consumer GPUs</div>
         </div>
 
-        <div class="term amber">
+        <div class="term amber reveal">
           <div class="term-name">grad_accum</div>
           <div class="term-formal">gradient_accumulation_steps</div>
           <div class="term-body">
-            Sum gradients over N micro-batches before applying. Simulates
-            a bigger batch without the memory cost.
+            Sum gradients over G micro-batches before applying. Simulates a
+            bigger batch without the memory cost. Lets you decouple "what
+            fits in VRAM" from "what makes a good gradient."
           </div>
-          <div class="term-eg"><b>Run-02:</b> 2 → effective batch = 2</div>
+          <div class="term-eg"><b>Example:</b> B=2, G=4 ⇒ effective batch 8</div>
         </div>
 
-        <div class="term green">
+        <div class="term green reveal">
           <div class="term-name">effective_batch</div>
           <div class="term-formal">batch_size × grad_accum</div>
           <div class="term-body">
             What actually shows up in one optimizer step. This is the number
-            you compare against papers' "batch size".
+            you compare against the literature's "batch size".
           </div>
-          <div class="term-eg"><b>Run-02:</b> 1 × 2 = 2</div>
+          <div class="term-eg"><b>Formula:</b> <code>effective_batch = B × G</code></div>
         </div>
 
-        <div class="term">
+        <div class="term reveal">
           <div class="term-name">step</div>
           <div class="term-formal">one optimizer.step()</div>
           <div class="term-body">
             One actual update to the model weights. The trainer's progress
             bar counts these — not samples.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 1,680 total</div>
+          <div class="term-eg"><b>≠</b> sample, <b>≠</b> micro-batch</div>
         </div>
 
-        <div class="term">
+        <div class="term reveal">
           <div class="term-name">epoch</div>
-          <div class="term-formal">one pass over train set</div>
+          <div class="term-formal">one pass over the train set</div>
           <div class="term-body">
-            All training samples seen exactly once. With effective batch=2 and
-            1,120 samples, one epoch = 560 steps.
+            Every training sample seen exactly once. The number of epochs is
+            usually small for fine-tuning (1–5) and larger for from-scratch
+            training (tens to hundreds).
           </div>
-          <div class="term-eg"><b>Run-02:</b> 3 epochs × 560 = 1,680 steps</div>
+          <div class="term-eg"><b>Formula:</b> <code>steps/epoch = ⌈ N / (B·G) ⌉</code></div>
         </div>
 
-        <div class="term">
+        <div class="term reveal delay-1">
           <div class="term-name">learning_rate</div>
           <div class="term-formal">step size per update</div>
           <div class="term-body">
             How aggressively each gradient nudges the weights. Too high =
             unstable; too low = slow / stuck.
           </div>
-          <div class="term-eg"><b>Run-02:</b> peak 2e-5</div>
+          <div class="term-eg"><b>Typical fine-tune:</b> 1e-5 – 5e-5</div>
         </div>
 
-        <div class="term">
+        <div class="term reveal delay-1">
           <div class="term-name">lr_scheduler</div>
           <div class="term-formal">how the LR changes over time</div>
           <div class="term-body">
             <code>cosine</code> = warm up linearly, then decay along a cosine
-            curve to ≈0. Smoother than constant LR.
+            curve to ≈0. Smoother than constant LR. Other choices: linear,
+            constant, polynomial.
           </div>
-          <div class="term-eg"><b>Run-02:</b> cosine + 10% warmup</div>
+          <div class="term-eg"><b>Default:</b> cosine + small warmup</div>
         </div>
 
-        <div class="term">
+        <div class="term reveal delay-1">
           <div class="term-name">warmup_ratio</div>
           <div class="term-formal">fraction of steps spent ramping LR</div>
           <div class="term-body">
             First X% of training, LR rises from 0 → peak. Prevents early
-            instability when gradients are wild.
+            instability when gradients are wild and the model is mostly
+            random.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 0.1 (first 168 steps)</div>
+          <div class="term-eg"><b>Typical:</b> 0.03 – 0.1</div>
         </div>
 
-        <div class="term green">
+        <div class="term green reveal delay-1">
           <div class="term-name">train_loss</div>
           <div class="term-formal">loss on training batches</div>
           <div class="term-body">
-            Mean loss over the most recent logged steps. Falling = the model
-            is fitting the data it sees.
+            Mean loss over recently-logged steps. Falling = the model is
+            fitting the data it sees. Falling fast then plateauing is normal.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 8.01 → 1.46</div>
+          <div class="term-eg"><b>What to watch:</b> downward, then flat</div>
         </div>
 
-        <div class="term green">
+        <div class="term green reveal delay-1">
           <div class="term-name">eval_loss</div>
           <div class="term-formal">loss on held-out eval set</div>
           <div class="term-body">
             Mean loss on data the model has never trained on. The honest
-            signal of generalization.
+            signal of generalization. Compare against train_loss to spot
+            overfit.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 1.6350 → 1.6248 → 1.6387</div>
+          <div class="term-eg"><b>What to watch:</b> reaches a minimum, then rises</div>
         </div>
 
-        <div class="term amber">
+        <div class="term amber reveal delay-2">
           <div class="term-name">final eval loss</div>
           <div class="term-formal">eval at the last step</div>
           <div class="term-body">
             Reported at end of training. <b>Not always the best</b> — if
-            overfitting started, an earlier checkpoint may generalize better.
+            overfitting kicked in, an earlier checkpoint will generalize
+            better. Always compare to the minimum.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 1.6387 (worse than epoch 2)</div>
         </div>
 
-        <div class="term magenta">
+        <div class="term magenta reveal delay-2">
           <div class="term-name">grad_norm</div>
           <div class="term-formal">L2 norm of gradients</div>
           <div class="term-body">
-            Magnitude of the gradient vector pre-clipping. Watch for spikes
-            (instability) or sudden drops (vanishing grads).
+            Magnitude of the gradient vector pre-clipping. Big spikes =
+            instability; sudden drops to ~0 = vanishing gradients.
           </div>
-          <div class="term-eg"><b>Run-02:</b> drifted 2 → 4 across the run</div>
+          <div class="term-eg"><b>Healthy:</b> stable, in single digits</div>
         </div>
 
-        <div class="term magenta">
+        <div class="term magenta reveal delay-2">
           <div class="term-name">max_grad_norm</div>
           <div class="term-formal">gradient clipping threshold</div>
           <div class="term-body">
             If <code>grad_norm</code> exceeds this, the gradient is rescaled
-            down. Prevents exploding-gradient blow-ups.
+            down. Cheap insurance against exploding-gradient blow-ups.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 1.0</div>
+          <div class="term-eg"><b>Default:</b> 1.0</div>
         </div>
 
-        <div class="term">
+        <div class="term reveal delay-2">
           <div class="term-name">checkpoint</div>
           <div class="term-formal">snapshot of weights</div>
           <div class="term-body">
             Full save of trainable params at a step. Restore for resume,
             evaluate, or ship.
           </div>
-          <div class="term-eg"><b>Run-02:</b> ckpt-1120, ckpt-1680</div>
+          <div class="term-eg"><b>Folder name:</b> <code>checkpoint-{step}</code></div>
         </div>
 
-        <div class="term green">
+        <div class="term green reveal delay-2">
           <div class="term-name">best checkpoint</div>
           <div class="term-formal">lowest eval_loss across the run</div>
           <div class="term-body">
             The state of the model when it generalized best. Often
-            <b>not</b> the last one.
+            <b>not</b> the last one — and that's a feature, not a bug.
           </div>
-          <div class="term-eg"><b>Run-02:</b> checkpoint-1120</div>
         </div>
 
-        <div class="term">
+        <div class="term reveal delay-3">
           <div class="term-name">save_strategy</div>
           <div class="term-formal">when to dump checkpoints</div>
           <div class="term-body">
-            <code>epoch</code> = save at end of each epoch. <code>steps</code>
-            = save every N steps.
+            <code>epoch</code> = save at end of each epoch.
+            <code>steps</code> = save every N steps. Pair with
+            <code>save_total_limit</code> to keep disk usage in check.
           </div>
-          <div class="term-eg"><b>Run-02:</b> epoch (limit=2 keeps disk small)</div>
         </div>
 
-        <div class="term">
+        <div class="term reveal delay-3">
           <div class="term-name">eval_strategy</div>
           <div class="term-formal">when to run evaluation</div>
           <div class="term-body">
-            <code>epoch</code> = eval at end of each epoch. <code>no</code> =
-            never (skip eval entirely).
+            <code>epoch</code> = eval at end of each epoch.
+            <code>steps</code> = every N steps. <code>no</code> = never
+            (skip — fastest, but you fly blind).
           </div>
-          <div class="term-eg"><b>Run-02:</b> epoch · 280 samples in ~37 s</div>
         </div>
 
-        <div class="term">
+        <div class="term reveal delay-3">
           <div class="term-name">logging_steps</div>
           <div class="term-formal">how often the trainer prints</div>
           <div class="term-body">
             Train loss + grad norm + LR are logged every N steps. Smaller =
-            more granular curves but more I/O.
+            more granular curves but more I/O. 10 is a common balance.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 10</div>
         </div>
 
-        <div class="term magenta">
+        <div class="term magenta reveal delay-3">
           <div class="term-name">gradient_checkpointing</div>
           <div class="term-formal">memory-time trade-off</div>
           <div class="term-body">
             Discards activations during forward pass and re-computes them on
-            backward. Cuts VRAM ~50% at ~25% speed cost.
+            backward. Cuts VRAM ~50% at ~25% speed cost. Practically required
+            for 7B+ models on consumer GPUs.
           </div>
-          <div class="term-eg"><b>Run-02:</b> on (required for 7B on A10G)</div>
         </div>
 
-        <div class="term">
-          <div class="term-name">bf16</div>
-          <div class="term-formal">brain-float 16-bit</div>
+        <div class="term reveal delay-3">
+          <div class="term-name">bf16 / fp16</div>
+          <div class="term-formal">half-precision compute</div>
           <div class="term-body">
-            Half-precision with the same exponent range as fp32. Faster
-            matmuls; safer than fp16 for fine-tuning.
+            16-bit floats — faster matmuls, half the activation memory.
+            <code>bf16</code> has fp32's exponent range and is safer for
+            fine-tuning; <code>fp16</code> is faster on older GPUs but can
+            overflow.
           </div>
-          <div class="term-eg"><b>Run-02:</b> compute dtype = bf16</div>
         </div>
 
-        <div class="term magenta">
+        <div class="term magenta reveal delay-4">
           <div class="term-name">weight_decay</div>
           <div class="term-formal">L2-style regularization</div>
           <div class="term-body">
             Shrinks weights slightly each step. Discourages overfit. Often
-            skipped for small LoRA adapters.
+            skipped for small LoRA adapters; kept (~0.01) for full
+            fine-tuning.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 0.0 (LoRA already tiny)</div>
         </div>
 
-        <div class="term green">
+        <div class="term magenta reveal delay-4">
+          <div class="term-name">dropout</div>
+          <div class="term-formal">stochastic regularization</div>
+          <div class="term-body">
+            Randomly zeros a fraction of activations during training so the
+            model can't lean on any single neuron. A small dropout in LoRA
+            (~0.05) goes a long way.
+          </div>
+        </div>
+
+        <div class="term green reveal delay-4">
           <div class="term-name">CER · WER</div>
           <div class="term-formal">character / word error rate</div>
           <div class="term-body">
-            Edit-distance / reference-length. Range [0, 1] when computed
-            with <code>jiwer</code>. Lower is better.
+            Edit-distance ÷ reference-length. Range [0, 1] when computed
+            with <code>jiwer</code>. Lower is better. Used post-training,
+            never as the optimization target.
           </div>
-          <div class="term-eg"><b>Used in:</b> notebook 06 (post-training)</div>
         </div>
 
-        <div class="term green">
+        <div class="term green reveal delay-4">
           <div class="term-name">exact_match</div>
           <div class="term-formal">prediction == reference</div>
           <div class="term-body">
-            Strictest metric. 100% means letter-perfect transcription.
+            Strictest metric. 100% = letter-perfect output. Useful when the
+            task has one correct answer (transcription, structured
+            extraction).
           </div>
-          <div class="term-eg"><b>Run-01 eval:</b> 0% (model still drifts)</div>
         </div>
 
-        <div class="term">
+        <div class="term reveal delay-5">
           <div class="term-name">seed</div>
           <div class="term-formal">RNG seed</div>
           <div class="term-body">
             Fixes data shuffle, dropout masks, init noise — so the same
-            command gives the same numbers.
+            command gives the same numbers. Essential for fair experiments.
           </div>
-          <div class="term-eg"><b>Run-02:</b> 42</div>
+          <div class="term-eg"><b>Convention:</b> 42 (the obvious one)</div>
         </div>
       </section>
     </main>
@@ -1104,23 +1343,53 @@
       const vN = $('v-N'), vB = $('v-B'), vG = $('v-G'), vE = $('v-E');
       const rEff = $('r-eff'), rSpe = $('r-spe'), rTotal = $('r-total'),
             rSamples = $('r-samples'), rTime = $('r-time');
+      const resultsPanel = document.querySelector('.results');
       const microRow = $('micro-row'), microCount = $('micro-count'),
             gradCount = $('grad-count');
 
-      function fmt(n) { return n.toLocaleString('en-US'); }
+      const fmt = n => n.toLocaleString('en-US');
 
-      function recalc() {
+      // Animate a number from current → target over ~280ms
+      function tween(el, from, to, suffix='') {
+        const dur = 280, t0 = performance.now();
+        const same = from === to;
+        if (same) { el.textContent = (suffix ? to + suffix : fmt(to)); return; }
+        function frame(now) {
+          const t = Math.min(1, (now - t0) / dur);
+          const eased = 1 - Math.pow(1 - t, 3);
+          const v = Math.round(from + (to - from) * eased);
+          el.textContent = suffix ? v + suffix : fmt(v);
+          if (t < 1) requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      }
+      function flash(el) {
+        el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+      }
+
+      let last = { eff: 0, spe: 0, tot: 0, samples: 0 };
+      let touchTimer = null;
+      function recalc(animate=true) {
         const n = +N.value, b = +B.value, g = +G.value, e = +E.value;
         vN.textContent = fmt(n); vB.textContent = b; vG.textContent = g; vE.textContent = e;
         const eff = b * g;
         const spe = Math.ceil(n / eff);
         const tot = spe * e;
         const samples = tot * eff;
-        rEff.textContent = eff;
-        rSpe.textContent = fmt(spe);
-        rTotal.textContent = fmt(tot);
-        rSamples.textContent = fmt(samples);
-        // rough A10G estimate: 38 steps/min on Qwen2.5-VL-7B
+        if (animate) {
+          tween(rEff, last.eff, eff);
+          tween(rSpe, last.spe, spe);
+          tween(rTotal, last.tot, tot);
+          tween(rSamples, last.samples, samples);
+          flash(rEff); flash(rSpe); flash(rTotal); flash(rSamples); flash(rTime);
+        } else {
+          rEff.textContent = eff;
+          rSpe.textContent = fmt(spe);
+          rTotal.textContent = fmt(tot);
+          rSamples.textContent = fmt(samples);
+        }
+        last = { eff, spe, tot, samples };
+        // wall-clock estimate (~38 steps/min on a 7B VL model on a 24 GB GPU)
         const mins = tot / 38;
         rTime.textContent = mins < 1 ? '< 1 min' :
                             mins < 60 ? `~${Math.round(mins)} min` :
@@ -1129,52 +1398,110 @@
         microCount.textContent = b;
         gradCount.textContent = `${eff}×`;
         microRow.innerHTML = '';
-        for (let i = 0; i < Math.min(b * g, 16); i++) {
+        const blocks = Math.min(b * g, 24);
+        for (let i = 0; i < blocks; i++) {
           const s = document.createElement('span');
           s.className = 'micro';
-          s.style.animationDelay = `${i * 0.15}s`;
+          s.style.animationDelay = `${i * 0.12}s`;
           microRow.appendChild(s);
         }
+        // breathe the results panel
+        if (animate) {
+          resultsPanel.classList.add('touched');
+          clearTimeout(touchTimer);
+          touchTimer = setTimeout(() => resultsPanel.classList.remove('touched'), 900);
+        }
       }
-      [N, B, G, E].forEach(el => el.addEventListener('input', recalc));
+      [N, B, G, E].forEach(el => el.addEventListener('input', () => recalc(true)));
       $('reset').addEventListener('click', () => {
-        N.value = 1120; B.value = 1; G.value = 2; E.value = 3;
-        recalc();
+        N.value = 1000; B.value = 2; G.value = 4; E.value = 3;
+        recalc(true);
       });
-      recalc();
+      recalc(false);
 
-      // ── loss-phase explainer ──
+      // ── loss-phase explainer (concept-focused) ──
       const phases = {
         warmup: {
           cls: '',
-          html: `<strong>Warm-up (steps 0–280, epoch 0–0.5).</strong>
-            Train loss collapses from <b>8.01 → 1.56</b> (≈80%) as the LoRA
-            adapter learns the most obvious patterns. Learning rate is ramping
-            up linearly; eval is not measured yet.`
+          html: `<strong>Phase 1 — Warm-up.</strong>
+            The first chunk of training. Train loss collapses fast as the
+            model picks up the most obvious patterns. Learning rate is ramping
+            up linearly from zero; eval isn't usually measured yet because
+            the signal is too noisy to be meaningful.
+            <em>What to watch:</em> the curve should drop steeply, not stall.`
         },
         fitting: {
           cls: 'green',
-          html: `<strong>Fitting (steps 280–1120, epoch 0.5–2).</strong>
-            Train loss settles around 1.5–1.7. <b>Eval loss reaches its minimum
-            of 1.6248 at step 1120.</b> Train and eval are still close — the
-            model is generalizing, not memorizing.`
+          html: `<strong>Phase 2 — Fitting.</strong>
+            Train loss settles into a slow downward slope. Eval loss
+            <b>reaches its minimum somewhere in here</b> — that's the best
+            checkpoint. Train and eval are still close together, meaning
+            the model is genuinely generalizing, not just memorizing.
+            <em>What to watch:</em> note where the eval-loss minimum lands.`
         },
         overfit: {
           cls: 'amber',
-          html: `<strong>Mild overfit (steps 1120–1680, epoch 2–3).</strong>
-            Train loss keeps falling (<b>1.62 → 1.46</b>) but eval loss nudges
-            back up to 1.6387. Train/eval gap widens — the model is starting
-            to memorize. <b>Best to stop earlier and ship checkpoint-1120.</b>`
+          html: `<strong>Phase 3 — Mild overfit.</strong>
+            Train loss keeps falling, but eval loss has stopped — and may
+            start drifting <em>up</em>. The train/eval gap widens. The
+            model is now memorizing instead of generalizing.
+            <em>What to watch:</em> stop earlier next time, or ship the
+            best checkpoint from Phase 2.`
         }
       };
       const explain = $('phase-text');
       document.querySelectorAll('.loss-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', e => {
+          // ripple
+          const r = document.createElement('span');
+          r.className = 'ripple';
+          const rect = btn.getBoundingClientRect();
+          const size = Math.max(rect.width, rect.height);
+          r.style.width = r.style.height = size + 'px';
+          r.style.left = (e.clientX - rect.left - size/2) + 'px';
+          r.style.top  = (e.clientY - rect.top  - size/2) + 'px';
+          btn.appendChild(r);
+          setTimeout(() => r.remove(), 600);
+
           document.querySelectorAll('.loss-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
+          // highlight matching phase rect on SVG
+          document.querySelectorAll('.phase-rect').forEach(r => r.classList.remove('active'));
+          const rect2 = document.querySelector(`.phase-rect[data-phase="${btn.dataset.phase}"]`);
+          if (rect2) rect2.classList.add('active');
+          // swap explain
           const p = phases[btn.dataset.phase];
           explain.className = 'loss-explain ' + p.cls;
-          explain.innerHTML = p.html;
+          explain.style.opacity = 0;
+          setTimeout(() => {
+            explain.innerHTML = p.html;
+            explain.style.opacity = 1;
+          }, 120);
+        });
+      });
+      // smooth transition for explain swap
+      explain.style.transition = 'opacity .25s ease';
+
+      // ── reveal-on-scroll for sections / cards ──
+      const io = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+      document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+      // ── chip smooth scroll (also closes IntersectionObserver edge cases) ──
+      document.querySelectorAll('.chip').forEach(c => {
+        c.addEventListener('click', e => {
+          const href = c.getAttribute('href');
+          if (href && href.startsWith('#')) {
+            e.preventDefault();
+            const target = document.querySelector(href);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
         });
       });
     </script>
