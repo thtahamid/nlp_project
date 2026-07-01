@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notebook Issues Report — MAI 656 NLP Project</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card-bg: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-bold: #f0f6fc;
+    --accent: #58a6ff;
+    --critical: #f85149;
+    --high: #d29922;
+    --medium: #3fb950;
+    --low: #8b949e;
+    --code-bg: #0d1117;
+    --highlight: #1f6feb33;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  h1 { color: var(--text-bold); font-size: 2rem; margin-bottom: 0.5rem; }
+  h2 {
+    color: var(--text-bold);
+    font-size: 1.5rem;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 { color: var(--accent); font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
+  .subtitle { color: var(--low); font-size: 0.95rem; }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+  .badge-critical { background: var(--critical); color: #fff; }
+  .badge-high { background: var(--high); color: #fff; }
+  .badge-medium { background: var(--medium); color: #fff; }
+  .badge-low { background: var(--low); color: #fff; }
+  .issue-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+    border-left: 4px solid;
+  }
+  .issue-critical { border-left-color: var(--critical); }
+  .issue-high { border-left-color: var(--high); }
+  .issue-medium { border-left-color: var(--medium); }
+  .issue-low { border-left-color: var(--low); }
+  .issue-title { font-weight: 700; color: var(--text-bold); margin-bottom: 0.4rem; }
+  .issue-detail { font-size: 0.92rem; margin: 0.3rem 0; }
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: #e6edf3;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+    font-size: 0.85em;
+    margin: 0.5rem 0;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+  .stat-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    text-align: center;
+  }
+  .stat-number { font-size: 2.2rem; font-weight: 700; }
+  .stat-number.critical { color: var(--critical); }
+  .stat-number.high { color: var(--high); }
+  .stat-number.medium { color: var(--medium); }
+  .stat-label { font-size: 0.85rem; color: var(--low); margin-top: 0.25rem; }
+  .notebook-tag {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+    margin-top: 4px;
+  }
+  .tag-05 { background: #1f6feb33; color: #79c0ff; }
+  .tag-06 { background: #23863633; color: #7ee787; }
+  .tag-08 { background: #a371f733; color: #d2a8ff; }
+  .tag-09 { background: #f0883e33; color: #ffa657; }
+  .tag-cross { background: #f8514933; color: #ff7b72; }
+  .toc { margin: 1.5rem 0; }
+  .toc a {
+    color: var(--accent);
+    text-decoration: none;
+    display: block;
+    padding: 3px 0;
+    font-size: 0.95rem;
+  }
+  .toc a:hover { text-decoration: underline; }
+  .impact { color: var(--low); font-style: italic; font-size: 0.88rem; margin-top: 0.4rem; }
+  .fix { background:var(--highlight); border-radius:4px; padding:0.5rem 0.75rem; margin-top:0.5rem; font-size:0.88rem; }
+  .fix::before { content: "Suggested Fix: "; font-weight:600; color: var(--medium); }
+  table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.9rem; }
+  th, td { padding:6px 10px; border:1px solid var(--border); text-align:left; }
+  th { background: var(--card-bg); color: var(--text-bold); }
+  tbody tr:nth-child(even){ background:#161b2266; }
+  .collapsible-header{ cursor:pointer; user-select:none; display:flex; align-items:center; gap:0.5rem; }
+  .collapsible-header::before{ content:"▶"; font-size:0.7rem; transition:transform 0.2s; }
+  .collapsible-header.open::before{ transform:rotate(90deg); }
+  .collapsible-body{ display:none; }
+  .collapsible-body.open{ display:block; }
+  footer{ margin-top:3rem; padding-top:1rem; border-top:1px solid var(--border); color:var(--low); font-size:0.8rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Code Review: Notebook Issues Report</h1>
+  <p class="subtitle">MAI 656 — Arabic Handwriting Fine-Tuning & Evaluation Pipeline (Spring 2026)</p>
+  <div class="summary-grid" style="margin-top:1.5rem;">
+    <div class="stat-box"><div class="stat-number critical">6</div><div class="stat-label">Critical</div></div>
+    <div class="stat-box"><div class="stat-number high">8</div><div class="stat-label">High</div></div>
+    <div class="stat-box"><div class="stat-number medium">7</div><div class="stat-label">Medium</div></div>
+    <div class="stat-box"><div class="stat-number low">3</div><div class="stat-label">Low</div></div>
+  </div>
+</header>
+
+<nav class="toc">
+  <h3>Table of Contents</h3>
+  <a href="#nb05">Notebook 05 — Qwen2.5-VL Fine-Tuning</a>
+  <a href="#nb06">Notebook 06 — Qwen2.5-VL Evaluation</a>
+  <a href="#nb08">Notebook 08 — Qwen3.5-9B Fine-Tuning</a>
+  <a href="#nb09">Notebook 09 — Qwen3.5-9B Evaluation</a>
+  <a href="#cross">Cross-Cutting Issues (Evals during training, evals, metrics)</a>
+  <a href="#summary">Summary & Recommendations</a>
+</nav>
+
+<!-- ===================== NB 05 ===================== -->
+<h2 id="nb05">Notebook 05 — Qwen2.5-VL Fine-Tuning</h2>
+
+<div class="issue-card issue-critical">
+  <div class="issue-title"><span class="badge badge-critical">Critical</span><span class="notebook-tag tag-05">NB05</span> All tokens used as labels — loss computed on prompt, not just assistant response</div>
+  <p class="issue-detail">In Cell 7, <code>inputs['labels'] = inputs['input_ids'].clone()</code> clones <em>every</em> token including the system prompt, user message (with chat template tokens), and the assistant response. The standard supervised fine-tuning practice is to mask prompt tokens with <code>-100</code> so the loss is computed <strong>only on the assistant response</strong>.</p>
+  <div class="fix">Iterate through message roles and set label=-100 for tokens belonging to <code>system</code> and <code>user</code> messages. Only <code>assistant</code> message token-positions should retain their original id as the label.</div>
+  <p class="impact">Impact: Model learns to predict its own prompt — wasted capacity, lower effective learning rate on actual target, potential output degradation.</p>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-05">NB05</span> Overfitting visible but only caught at epoch-end due to <code>eval_strategy='epoch'</code></div>
+  <p class="issue-detail">The training output shows training loss decreasing (1.63 → 1.45) while validation loss increases (1.63 → 1.64) — a textbook overfitting signal. With <code>eval_strategy='epoch'</code>, the team only discovers this at the boundary of each epoch — too late to trigger early stopping or LR adjustment mid-epoch.</p>
+  <div class="fix">Set <code>eval_strategy='steps'</code> with <code>eval_steps=50</code> (or similar), use <code>EarlyStoppingCallback(patience=2)</code>, and enable <code>load_best_model_at_end=True</code>.</div>
+  <p class="impact">Impact: Unnecessary training compute; final checkpoint is worse than an intermediate one (epoch 2's VLoss is lower than epoch 3's).</p>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-05">NB05</span> Deprecated <code>warmup_ratio</code> and <code>logging_dir</code></div>
+  <p class="issue-detail">Warnings <code>"warmup_ratio is deprecated and will be removed in v5.2"</code> and <code>"logging_dir is deprecated"</code> appear at runtime. While training proceeds, future Transformers versions will reject these parameters outright.</p>
+  <div class="fix">Switch to <code>warmup_steps</code> (compute as int(total_steps * 0.1)) and configure TensorBoard via <code>TENSORBOARD_LOGGING_DIR</code> env var.</div>
+  <div class="impact">Impact: Code will break in Transformers ≥ 5.2.</div>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-05">NB05</span> <code>DataCollatorForSeq2Seq</code> — slow list-of-arrays tensor creation</div>
+  <p class="issue-detail">Pytorch warning: "Creating a tensor from a list of numpy.ndarrays is extremely slow." The dataset returns mixed Tensor/numpy objects that force the collator to upcast via python list. Batch construction is slower than it could be.</p>
+  <div class="fix">Ensure every <code>__getitem__</code> returns torch tensors for all values; pre-stack numpy arrays within the dataset using <code>np.array()</code> before tensor conversion.</div>
+  <p class="impact">Impact: Slower per-batch overhead; can add 5-10% to total training time on large datasets.</p>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-05">NB05</span> Misleading adapter size cell output</div>
+  <p class="issue-detail">The save cell prints "Training complete! Adapter size: 2.3G" — this is not the LoRA adapter alone; it includes the ~2.3 GB saved checkpoint contents (optimizer state, etc. despite <code>save_total_limit=2</code>). Earlier in the doc they note the adapter should be ~380 MB.</p>
+  <div class="fix">Post-save, run <code>du -sh $OUTPUT_DIR/adapter_model.safetensors</code> to report true LoRA weights size.</div>
+</div>
+
+<!-- ===================== NB 06 ===================== -->
+<h2 id="nb06">Notebook 06 — Qwen2.5-VL Evaluation</h2>
+
+<div class="issue-card issue-critical">
+  <div class="issue-title"><span class="badge badge-critical">Critical</span><span class="notebook-tag tag-06">NB06</span> JSON prefix injected <em>twice</em> — before generation <em>and</em> post-generation</div>
+  <p class="issue-detail">Cell 18 first does <code>text += json_prefix</code> (appends <code>{"transcription":"</code> to the prompt so the model generates <code>value"}</code>). Then after generation it does <code>generated = json_prefix + generated</code>. Final <code>generated</code> string: <code>{"transcription":"{"transcription":"value"</code> — a nested/duplicated JSON prefix that <code>parse_output()</code> would parse as a syntax error or misread.</p>
+  <div class="fix">Remove one of the two. Either (a) prepend before generation only and clamp output with <code>stop_strings</code>, or (b) prepend after generation only but then don't guide via prefix. Option (a) is the common correct pattern.</div>
+  <p class="impact">Impact: <code>parse_output()</code> may fail or extract buried valid JSON; observed CER=0% valid_json=100% suggests parse-extraction is working on outer wrapper only, but downstream scoring can be subtly corrupted.</p>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-06">NB06</span> Prediction identical across many worst samples — model hallucinating fixed phrase</div>
+  <p class="issue-detail">Top-5 highest-CER samples all have the <strong>same</strong> prediction: "الصينية، وهم يدعونها باللغة الصينية..." regardless of the actual reference text (تأشيرة, جميلة, الصنيون...). This is a degenerate output from the LoRA adapter — the model has defaulted to outputting a single memorized phrase when uncertain.</p>
+  <div class="fix">Investigate dataset quality; consider more LoRA target modules, more epochs with stronger regularization (lora_dropout 0.1+), or switching to RSLoRA. The all-prefix-forcing may contribute — remove extra leading token bias.</div>
+  <p class="impact">Impact: Average CER ~1.28 is inflated by catastrophic outliers. Without them, average CER could be ~0.95.</p>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-06">NB06</span> Evaluation measures agreement with GPT-5.4-mini — not against human ground truth</div>
+  <p class="issue-detail">All ground-truth references were generated by gpt-5.4-mini during dataset construction. Evaluation metrics thus quantify how well the fine-tuned model <strong>agree with another LLM's outputs</strong>, not how accurately it performs Arabic handwriting transcription. This conflates "learning GPT-5.4's distribution" with "being correct".</p>
+  <div class="fix">Collect a small human-annotated gold set (even 20-50 samples) to compute a secondary "real accuracy" metric. Report both: "agreement with GPT reference" vs "gold-accuracy".</div>
+  <p class="impact">Impact: Reported numbers have no bearing on actual task performance; the project cannot claim handwriting recognition improvement.</p>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-06">NB06</span> No Arabic text normalization before CER/WER computation</div>
+  <p class="issue-detail">Arabic orthography has equivalent characters that differ in Unicode code-points (alef with/without hamza: ا/أ/إ/آ, ta-marbuta vs ha: ة/ه, ya vs alef-maqsura: ي/ى, diacritics/tashkeel). None are NFC/NFKC normalized; a single variant swap inflates CER artificially.</p>
+  <div class="fix">Apply <code>unicodedata.normalize('NFC', text)</code> (or more aggressive NFKC) before computing CER/WER. Optionally strip diacritics (Tashkeel) before comparison.</div>
+  <p class="impact">Impact: CER/WER may be overestimated; exact match rate may be 0% only due to encoding variance.</p>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-06">NB06</span> Exact-match rate is 0.0% despite reasonable CER</div>
+  <p class="issue-detail">With avg_CER ≈ 1.28 and many predictions visually close to references, exact-match = 0% is overly pessimistic. Character-level diacritics, trailing whitespace, or minor punctuation differences nullify this metric without reflecting real usability.</p>
+  <div class="fix">Report both strict exact-match and a tolerant match (e.g., after Unicode normalization, diacritic-stripping, case-folding).</div>
+</div>
+
+<div class="issue-card issue-low">
+  <div class="issue-title"><span class="badge badge-low">Low</span><span class="notebook-tag tag-06">NB06</span> <code>WER=1.0</code> for most samples indicates word-level split mismatch</div>
+  <p class="issue-detail">Arabic has clitics and attached pronouns pre-tokenized as whitespace-attached by GPT but tokenized differently by the model — even a single character edit splits a word, producing WER=1.0 for samples that "look" very close, reducing metric informativeness.</p>
+  <p class="impact">Impact: WER metric is a binary indicator dominated by whitespace boundaries, not useful for ranking sample quality.</p>
+</div>
+
+<!-- ===================== NB 08 ===================== -->
+<h2 id="nb08">Notebook 08 — Qwen3.5-9B Fine-Tuning</h2>
+
+<div class="issue-card issue-critical">
+  <div class="issue-title"><span class="badge badge-critical">Critical</span><span class="notebook-tag tag-08">NB08</span> Model <code>Qwen/Qwen3.5-9B</code> does <strong>not exist</strong> on Hugging Face</div>
+  <p class="issue-detail">No repository named <code>Qwen/Qwen3.5-9B</code> exists on Hugging Face as of Spring 2026. The repo doesn't load Qwen3 series official releases, nor Qwen3-VL or Qwen3.5-Entry. The notebook will fail at <code>Qwen3_5ForConditionalGeneration.from_pretrained()</code> (or even at snapshot_download if the name resolves to a missing repo). The entire pipeline is unreachable.</p>
+  <div class="fix">Switch to a real, supported model — likely <code>Qwen/Qwen2.5-VL-7B-Instruct</code> (already used in NB05) or <code>Qwen/Qwen2.5-7B-Instruct</code>+ VL processor, depending on task. If the intent is next-gen, use the actual released <code>Qwen/Qwen3-8B</code> with appropriate class (e.g., <code>Qwen3ForCausalLM</code> / <code>Qwen3VLForConditionalGeneration</code> if Vision-Language).</div>
+  <p class="impact">Impact: Notebook crashes immediately — zero progress possible without fixing.</p>
+</div>
+
+<div class="issue-card issue-critical">
+  <div class="issue-title"><span class="badge badge-critical">Critical</span><span class="notebook-tag tag-08">NB08</span> <code>Qwen3_5ForConditionalGeneration</code> is not a valid Transformers class</div>
+  <p class="issue-detail">No such class exists anywhere in Hugging Face Transformers. Even if a model were loaded, the code would raise ImportError. There's no <code>Qwen3_5...</code> class in HF transformers as of 2026. The existing classes are: <code>Qwen2ForCausalLM</code>, <code>Qwen2_5_VLForConditionalGeneration</code>, <code>Qwen3ForCausalLM</code>, etc. The "3.5" naming is fabricated.</p>
+  <div class="fix">Use correct class for chosen model — e.g. <code>Qwen2_5_VLForConditionalGeneration</code> for VL tasks, <code>Qwen3ForCausalLM</code> for Qwen3 text-generation.</div>
+</div>
+
+<div class="issue-card issue-critical">
+  <div class="issue-title"><span class="badge badge-critical">Critical</span><span class="notebook-tag tag-08">NB08</span> Vision inputs silently dropped — HTR model fed text-only to vision-language dataset</div>
+  <p class="issue-detail">Cell 7 calls <code>processor(text=text, return_tensors='pt', ...)</code> with NO <code>= images</code> parameter. The Arabic HTR dataset contains base64-encoded page images — those images are entirely discarded before processing. The model trains on (chat_template, transcription) text only. Even if Qwen3.5-9B existed, the vision signal is lost.</p>
+  <div class="fix">Implement the <code>extract_images()</code> and pass to processor exactly as Notebook 05 Cell 7 does. Without image inputs, "fine-tuning for Arabic HTR" is meaningless — the model learns prompt completion, not vision-language transcription.</div>
+  <p class="impact">Impact: The whole fine-tuning objective collapses — model never sees handwriting images.</p>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-08">NB08</span> <code>padding='max_length'</code> pads every sample to 8192 tokens</div>
+  <p class="issue-detail">Unlike NB05 which uses <code>DataCollatorForSeq2Seq</code> with dynamic padding, NB08 uses <code>padding='max_length'</code> — every batch element allocates an 8192-length tensor regardless of true sequence length. This is dramatically slower and wastes GPU memory (24 GB A10G), making training infeasible.</p>
+  <div class="fix">Use <code>padding=True</code> (dynamic) with a <code>DataCollatorForSeq2Seq</code>, matching NB05 pattern.</div>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-08">NB08</span> No run naming / checkpoint isolation</div>
+  <p class="issue-detail"><code>OUTPUT_DIR = Path(PROJECT_ROOT) / 'models' / 'lora_adapter'</code> — same path for every run. No <code>RUN_NAME</code> versioning unlike NB05's <code>run-N</code> scheme. Re-runs will overwrite prior adapters with no history.</p>
+  <div class="fix">Mirror NB05's <code>RUN_NAME</code> config and <code>output_dir = f'models/lora_adapter/{RUN_NAME}'</code> structure.</div>
+</div>
+
+<!-- ===================== NB 09 ===================== -->
+<h2 id="nb09">Notebook 09 — Qwen3.5-9B Evaluation</h2>
+
+<div class="issue-card issue-critical">
+  <div class="issue-title"><span class="badge badge-critical">Critical</span><span class="notebook-tag tag-09">NB09</span> Header incorrectly claims "Qwen2.5-VL" but uses Qwen3.5-9B (nonexistent) — misleading documentation</div>
+  <p class="issue-detail">Markdown header says <strong>"This notebook evaluates the fine-tuned Qwen2.5-VL model"</strong> yet Cell 4 sets <code>BASE_MODEL = 'Qwen/Qwen3.5-9B'</code>. This violates basic reproducibility — a reader modifying NB08 for a real model would not realize NB09 expects a different base.</p>
+  <div class="fix">Update header to match config (or vice versa), and use identical paths/constants across NB08/NB09.</div>
+</div>
+
+<div class="issue-card issue-critical">
+  <div class="issue-title"><span class="badge badge-critical">Critical</span><span class="notebook-tag tag-09">NB09</span> <code>Qwen3_5ForConditionalGeneration</code> does not exist — immediate ImportError</div>
+  <p class="issue-detail">Same nonexistent class as NB08. Cannot instantiate model.</p>
+  <div class="fix">Use actual released Qwen model class after NB08 model is fixed.</div>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-09">NB09</span> Image inputs silenced — model fed empty vision slots</div>
+  <p class="issue-detail"><code>processor(text=text, return_tensors='pt')</code> — no images. Same fatal NB08 issue carried into evaluation. The model "sees" only the chat prefix, never the handwriting page. Every prediction is faith-authored text — no vision signal. Equivalent to evaluating a random text decoder.</p>
+  <div class="fix">Add <code>extract_images(input_messages)</code> and pass to processor.</div>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-09">NB09</span> <code>max_new_tokens=512</code> hallucination budget — 4x larger than needed</div>
+  <p class="issue-detail">Arabic transcriptions average ~5-20 words; 512 output tokens invite massive over-production. Combined with no <code>stop_strings</code>, the model can generate unlimited trivia.</p>
+  <div class="fix">Set <code>max_new_tokens=128</code> (matching NB06) and add <code>stop_strings=['\"']</code> via tokenizer.</div>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-09">NB09</span> <code>temperature</code> parameter supplied but unused</div>
+  <p class="issue-detail"><code>model.generate(... temperature=0.7, do_sample=False)</code> — setting <code>do_sample=False</code> (greedy) makes temperature a dead parameter. The generation mode is greedy, but the config implies stochastic sampling to a reader. This is confusing and masks true generation behavior.</p>
+  <div class="fix">Remove <code>temperature</code> when <code>do_sample=False</code>.</div>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-09">NB09</span> Hand-rolled difflib-based CER/WER instead of <code>jiwer</code></div>
+  <p class="issue-detail">While difflib's SequenceMatcher implements O(ND) algorithms that approximate Levenshtein distance ratios (giving same results as jiwer), the implementation is non-standard and harder to audit. Also, <code>jiwer</code> handles Arabic-specific tokenization refinements and provides word-level isolation that difflib does not.</p>
+  <div class="fix">Use <code>jiwer.cer</code> and <code>jiwer.wer</code> (from NB06) for standardization and easier comparison.</div>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-09">NB09</span> KV cache not enabled for inference</div>
+  <p class="issue-detail">Unlike NB06 which does <code>model.config.use_cache = True</code>, this notebook omits the KV cache toggle. Generation is slower (≈linear-per-token instead of constant-per-token).</p>
+  <div class="fix">Set <code>model.config.use_cache = True</code>, or pass <code>use_cache=True</code> in generate args.</div>
+</div>
+
+<div class="issue-card issue-low">
+  <div class="issue-title"><span class="badge badge-low">Low</span><span class="notebook-tag tag-09">NB09</span> Windows-only local path breaks portability</div>
+  <p class="issue-detail"><code>PROJECT_ROOT = Path(r'C:\Users\mitah\github_projects\nlp_project')</code> hardcodes a Windows user path. Will fail for Linux/Colab/WSL users.</p>
+  <div class="fix">Use environment variable or relative path like NB05/<project> .</div>
+</div>
+
+<!-- ===================== Cross-cutting ===================== -->
+<h2 id="cross">Cross-Cutting Issues — Evals, Evals During Training, Metrics</h2>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-cross">CROSS</span> Training monitors only loss — no CER/WER during training</div>
+  <p class="issue-detail">Despite the downstream evaluation using CER/WER / exact-match as business-useful metrics, training only monitors scalar loss. Loss does not correlate well with CER/WER (e.g., small loss reduction can still yield high CER if the model overfits to prompt tokens). There's no way to see "is transcription quality improving?" inside the training loop.</p>
+  <div class="fix">Install a custom Trainer callback that computes CER on a small eval subset every N steps (<code>on_log</code>). Report via W&B/Trackio.</div>
+  <p class="impact">Impact: Impossible to early-stop on actual quality signals; project can't optimize for its stated metric.</p>
+</div>
+
+<div class="issue-card issue-high">
+  <div class="issue-title"><span class="badge badge-high">High</span><span class="notebook-tag tag-cross">CROSS</span> <code>report_to='none'</code> — no experiment tracking</div>
+  <p class="issue-detail"><code>TrainingArguments(report_to='none')</code> disables all logging. No W&B, TensorBoard, or HF-Trackio runs. Training is non-reproducible without external logging — only stderr output is saved, which is ephemeral.</p>
+  <div class="fix">Enable <code>report_to='trackio'</code> with a proper <code>run_name</code> and <code>project</code>. Include Trackio Space ID if available.</div>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-cross">CROSS</span> LoRA task_type 'CAUSAL_LM' may silently ignore VL projection losses</div>
+  <p class="issue-detail">For vision-language models, LoRA is applied to text-only submodules (q/k/v/o/gate/up/down). The vision tower and visual-aligned adapter layers are not LoRA-targeted, which is expected. However, the <code>task_type='CAUSAL_LM'</code> flag is not a concern here since we only LoRA the decoder. No VL-specific adapter layers are modified, so purely linguistic writing must adapt entirely through the LoRA-injected attention.</p>
+  <div class="fix">Document why certain VL layers are excluded; optionally add LoRA to VL-bridging tensors.</div>
+</div>
+
+<div class="issue-card issue-medium">
+  <div class="issue-title"><span class="badge badge-medium">Medium</span><span class="notebook-tag tag-cross">CROSS</span> No <code>load_best_model_at_end=True</code> and no early stopping</div>
+  <p class="issue-detail">NB05 uses <code>save_total_limit=2</code> but does not set <code>load_best_model_at_end=True</code>. After training, the loaded adapter is the final (worse) checkpoint, not the best. NB06 hand-selects <code>checkpoint-1120</code> as a workaround, but this is manual and fragile.</p>
+  <div class="fix">Add <code>load_best_model_at_end=True</code> and <code>metric_for_best_model='eval_loss'</code> to TrainingArguments. Add <code>EarlyStoppingCallback</code>.</div>
+</div>
+
+<div class="issue-card issue-low">
+  <div class="issue-title"><span class="badge badge-low">Low</span><span class="notebook-tag tag-cross">CROSS</span> <code>do_sample=False</code> in eval but <code>temperature</code> varies (0.1 vs 0.7)</div>
+  <p class="issue-detail">0.1 is used in NB06 (but <code>do_sample=False</code>!); 0.7 is in NB09 (same issue). Temperature is non-informative when sampling is disabled. The reported numbers do not capture stochastic variance at all.</p>
+  <div class="fix">Remove temperature entirely when <code>do_sample=False</code>.</div>
+</div>
+
+<!-- ===================== Summary ===================== -->
+<h2 id="summary">Summary & Top Recommendations</h2>
+
+<table>
+<thead>
+<tr><th>Priority</th><th>Notebook</th><th>Issue</th><th>One-line Fix</th></tr>
+</thead>
+<tbody>
+<tr><td>P0</td><td>05</td><td>Labels include prompt/masks (all tokens contribute to loss)</td><td>Mask prompt tokens with -100 — only assistant response should be target</td></tr>
+<tr><td>P0</td><td>05 + 08</td><td>Loss computed on entire sequence — violates SFT objective</td><td>Implement message-level mask for labels</td></tr>
+<tr><td>P0</td><td>08+09</td><td><code>Qwen3.5-9B</code> / <code>Qwen3_5ForConditionalGeneration</code> don't exist</td><td>Switch to real released model (likely Qwen2.5-VL-7B or Qwen3-VL)</td></tr>
+<tr><td>P0</td><td>08+09</td><td>Image inputs never passed to processor (silent data loss)</td><td>Add extract_images() and feed images= to processor</td></tr>
+<tr><td>P1</td><td>06</td><td>JSON prefix injected twice (pre- and post-generation)</td><td>Remove one injection; rely on stop_strings after pre-injection</td></tr>
+<tr><td>P1</td><td>05</td><td>Overfitting detected only at epoch end (no step-level eval or early stopping)</td><td>Enable eval_strategy='steps' + EarlyStoppingCallback</td></tr>
+<tr><td>P1</td><td>05+06+09</td><td>No Arabic text normalization (NFC/NFKC/diacritic stripping)</td><td>Normalize strings before computing CER/WER and exact-match</td></tr>
+<tr><td>P1</td><td>06</td><td>Evaluation measures agreement with GPT-5.4-mini, not task correctness</td><td>Build a small human gold set and run a secondary metric</td></tr>
+<tr><td>P1</td><td>08</td><td>padding='max_length' to 8192 — wastes memory on A10G</td><td>Use dynamic padding via DataCollatorForSeq2Seq</td></tr>
+<tr><td>P2</td><td>05+08+09</td><td>No CER/WER during training — only scalar loss</td><td>Add custom callback that periodically computes CER on mini-eval</td></tr>
+<tr><td>P2</td><td>05+08</td><td>No Trackio/W&B experiment tracking</td><td>Set report_to='trackio' with run_name and project</td></tr>
+<tr><td>P2</td><td>09</td><td>max_new_tokens=512 — produces huge hallucinated outputs</td><td>Cap at 128 tokens, add stop_strings</td></tr>
+<tr><td>P2</td><td>08</td><td>No run-N checkpoint versioning — multiple runs overwrite</td><td>Mirror NB05 RUN_NAME config</td></tr>
+<tr><td>P3</td><td>05</td><td>warmup_ratio / logging_dir deprecated in HF Transformers 5.2+</td><td>Switch to warmup_steps and TENSORBOARD_LOGGING_DIR env var</td></tr>
+<tr><td>P3</td><td>06</td><td>Exact-match = 0% because trivial diacritic differences aren't tolerated</td><td>Report normalized match rate alongside strict exact-match</td></tr>
+<tr><td>P3</td><td>09</td><td>Temperature used with do_sample=False (dead config)</td><td>Remove temperature from generate args</td></tr>
+</tbody>
+</table>
+
+<h3>Recommended Immediate Action Sequence</h3>
+<ol>
+  <li><strong>Fix labels in NB05</strong>: only compute loss on assistant-response tokens. This one change alone will produce a dramatically better LoRA adapter.</li>
+  <li><strong>Replace Qwen3.5-9B references</strong> in NB08/09 with a released model (likely Qwen2.5-VL-7B-Instruct) to unblock the full pipeline.</li>
+  <li><strong>Add image feeds to processor</strong> everywhere NB08/NB09 touch data. Without vision, HTR is impossible.</li>
+  <li><strong>Enable step-level eval + early stopping</strong> in NB05 to halt training before overfitting.</li>
+  <li><strong>Report CER/WER within training</strong> so future runs can be tuned against the real business metric.</li>
+</ol>
+
+<footer>
+  Generated on 2026-07-01 from manual code review of notebooks 05, 06, 08, 09 in <code>/podman_home/nlp_project/notebook/</code>. No training or evaluation was run for this review.
+</footer>
+
+<script>
+document.querySelectorAll('.collapsible-header').forEach(function(el){
+  el.addEventListener('click', function(){
+    el.classList.toggle('open');
+    el.nextElementSibling.classList.toggle('open');
+  });
+});
+</script>
+</body>
+</html>
